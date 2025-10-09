@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JavaScript函数示例</title>
+
+</head>
+<body>
+    <h1>1. alert()使用</h1>
+    <button onclick="welcome()">显示欢迎信息</button>
+    
+    <h1>2. console.log()使用</h1>
+    <button onclick="output()">输出信息到控制台</button>
+    
+    <h1>3. 简单函数</h1>
+    <button onclick="hello()">打招呼</button> 
+    <button onclick="showLocalTime()">显示当地时间</button>
+    
+    <h1>4. 带参数的函数</h1>
+    <button onclick="sayhello('小明')">向小明打招呼</button> 
+    <button onclick="square(5)">计算5的平方</button>
+    
+    <h1>5. 有返回值的函数</h1>
+    <button onclick="useReturnValue()">使用返回值</button> 
+    <button onclick="sumAndShow(10, 20)">计算并显示的和</button>
+
+    <script>
+        function welcome(){
+            alert("欢迎回家！")
+        }
+                
+        function output(){
+            console.log("大家好，我是控制台");
+        }
+        
+        function hello(){
+            alert("你好！很高兴见到你！");
+        }
+        
+        function showLocalTime(){
+            const now = new Date();
+            const timeStr = now.toLocaleString();
+            alert("当前当地时间：" + timeStr);
+        }
+        
+        function sayhello(name){
+            alert(`你好，${name}！`);
+        }
+        
+        function square(number){
+            const result = number * number;
+            alert(`${number}的平方是：${result}`);
+        }
+        
+        function add(a, b){
+            return a + b;
+        }
+        
+        function useReturnValue(){
+            const result = add(3, 5);
+            alert("3 + 5 的结果是：" + result);
+        }
+        
+        function sumAndShow(a, b){
+            const result = add(a, b);
+            alert(`${a} + ${b} 的结果是：${result}`);
+        }
+    </script>
+</body>
+</html>
