@@ -1,0 +1,354 @@
+//修改版
+#include<stdio.h>
+#include<easyx.h>
+#include<time.h>
+#include<math.h>
+#define Wide 1139
+#define Hight 640
+#define Wide_map (Wide*5)
+#define Hight_map (Hight*5)
+#define Food_num 2888
+#define Enemy_num 388
+#define Invincibility 50
+//整个游戏地图
+IMAGE map(Wide_map, Hight_map);
+//复活时的无敌时间
+int invincibility = Invincibility;
+//玩家速度
+int player_sleep = 2;
+int l = 2;
+int enemy_sleep = 2;
+struct Ball
+{
+	int x;
+	int y;
+	float r;
+	DWORD color;
+};
+struct Ball player;
+struct Ball Food[Food_num];
+struct Ball Enemy[Enemy_num];
+//初始化球的数据
+void Inset()
+{
+	srand((unsigned)time(NULL));
+	player.x = Wide / 2;
+	player.y = Hight / 2;
+	player.r = 15;
+	for (int i = 0; i < Food_num; i++)
+	{
+		Food[i].x = rand() % Wide_map;
+		Food[i].y = rand() % Hight_map;
+		Food[i].r = rand() % 5 + 1;
+		Food[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+	}
+	for (int i = 0; i < Enemy_num; i++)
+	{
+		Enemy[i].x = rand() % Wide_map;
+		Enemy[i].y = rand() % Hight_map;
+		Enemy[i].r = rand() % 15 + 15;
+		Enemy[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+	}
+
+}
+//玩家操作
+void Player_move()
+{
+	if (GetAsyncKeyState(VK_UP) || GetAsyncKeyState(0x57))
+	{
+		if (player.y > 0)
+		{
+			player.y -= player_sleep;
+		}
+	}
+	if (GetAsyncKeyState(VK_DOWN) || GetAsyncKeyState(83))
+	{
+		if (player.y < Hight_map)
+			player.y += player_sleep;
+	}
+	if (GetAsyncKeyState(VK_LEFT) || GetAsyncKeyState(65))
+	{
+		if (player.x > 0)
+			player.x -= player_sleep;
+	}
+	if (GetAsyncKeyState(VK_RIGHT) || GetAsyncKeyState(68))
+	{
+		if (player.x < Wide_map)
+			player.x += player_sleep;
+	}
+	if (GetAsyncKeyState(0x20))
+	{
+		player_sleep = l + 2;
+	}
+	else
+	{
+		player_sleep = l;
+	}
+}
+//距离
+int Distance(int x, int y, int x1, int y1)
+{
+	return sqrt((x - x1) * (x - x1) + (y - y1) * (y - y1));
+}
+//敌人移动
+void Enemy_move()
+{
+	srand((unsigned)time(NULL));
+	for (int i = 0; i < Enemy_num; i++)
+	{
+		int direction = rand() % 400;
+
+		if (Distance(player.x, player.y, Enemy[i].x, Enemy[i].y) > player.r + Enemy[i].r + 50)
+		{
+			if (direction < 100)
+			{
+				if (Enemy[i].y > 0)
+				{
+					Enemy[i].y -= enemy_sleep;
+				}
+			}
+			if (direction < 200 && direction >= 100)
+			{
+				if (Enemy[i].y < Hight_map)
+					Enemy[i].y += enemy_sleep;
+			}
+			if (direction < 300 && direction >= 200)
+			{
+				if (Enemy[i].x > 0)
+					Enemy[i].x -= enemy_sleep;
+			}
+			if (direction < 400 && direction >= 300)
+			{
+				if (Enemy[i].x < Wide_map)
+					Enemy[i].x += enemy_sleep;
+			}
+		}
+		//敌人追击玩家
+		if (Distance(player.x, player.y, Enemy[i].x, Enemy[i].y) <= player.r + Enemy[i].r + 50)
+		{
+			if (Enemy[i].r > player.r)
+			{
+				if (Enemy[i].x < player.x)
+				{
+					if (Enemy[i].x < Wide_map)
+					{
+						Enemy[i].x += enemy_sleep;
+					}
+				}
+				if (Enemy[i].x > player.x)
+				{
+					if (Enemy[i].x > 0)
+					{
+						Enemy[i].x -= enemy_sleep;
+					}
+				}
+				if (Enemy[i].y < player.y)
+				{
+					if (Enemy[i].y < Hight_map)
+					{
+						Enemy[i].y += enemy_sleep;
+					}
+				}
+				if (Enemy[i].y > player.y)
+				{
+					if (Enemy[i].y > 0)
+					{
+						Enemy[i].y -= enemy_sleep;
+					}
+				}
+			}
+			//敌人逃跑
+			else
+			{
+				if (Enemy[i].x < player.x)
+				{
+					if (Enemy[i].x > 0)
+					{
+						Enemy[i].x -= enemy_sleep;
+					}
+				}
+				if (Enemy[i].x > player.x)
+				{
+					if (Enemy[i].x < Wide_map)
+					{
+						Enemy[i].x += enemy_sleep;
+					}
+				}
+				if (Enemy[i].y < player.y)
+				{
+					if (Enemy[i].y > 0)
+					{
+						Enemy[i].y -= enemy_sleep;
+					}
+				}
+				if (Enemy[i].y > player.y)
+				{
+					if (Enemy[i].y < Hight_map)
+					{
+						Enemy[i].y += enemy_sleep;
+					}
+				}
+			}
+		}
+
+	}
+}
+
+//吃食物
+void EatFood()
+{
+	for (int i = 0; i < Food_num; i++)
+	{
+		//玩家吃食物
+		if (Distance(player.x, player.y, Food[i].x, Food[i].y) < player.r)
+		{
+			player.r += Food[i].r / 50;
+			Food[i].x = rand() % Wide_map;
+			Food[i].y = rand() % Hight_map;
+			Food[i].r = rand() % 5 + 1;
+			Food[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+		}
+
+	}
+	for (int j = 0; j < Enemy_num; j++)
+	{
+		//敌人吃食物
+		for (int i = 0; i < Food_num; i++)
+		{
+			if (Distance(Enemy[j].x, Enemy[j].y, Food[i].x, Food[i].y) < Enemy[j].r)
+			{
+				Enemy[j].r += Food[i].r / 50;
+				Food[i].x = rand() % Wide_map;
+				Food[i].y = rand() % Hight_map;
+				Food[i].r = rand() % 5 + 1;
+				Food[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+			}
+		}
+		//敌人吃敌人
+		for (int i = 0; i < Enemy_num; i++)
+		{
+			if (Distance(Enemy[j].x, Enemy[j].y, Enemy[i].x, Enemy[i].y) < Enemy[j].r && Enemy[j].r > Enemy[i].r)
+			{
+				Enemy[j].r += Enemy[i].r / 10;
+				Enemy[i].x = rand() % Wide_map;
+				Enemy[i].y = rand() % Hight_map;
+				Enemy[i].r = rand() % 10 + 15;
+				Enemy[i].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+			}
+			if (Distance(Enemy[j].x, Enemy[j].y, Enemy[i].x, Enemy[i].y) < Enemy[i].r && Enemy[j].r < Enemy[i].r)
+			{
+				Enemy[i].r += Enemy[j].r / 10;
+				Enemy[j].x = rand() % Wide_map;
+				Enemy[j].y = rand() % Hight_map;
+				Enemy[j].r = rand() % 10 + 15;
+				Enemy[j].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+			}
+		}
+		if (Distance(player.x, player.y, Enemy[j].x, Enemy[j].y) < player.r)
+		{
+			//玩家吃敌人
+			if (player.r > Enemy[j].r)
+			{
+				player.r += Enemy[j].r / 10;
+				Enemy[j].x = rand() % Wide_map;
+				Enemy[j].y = rand() % Hight_map;
+				Enemy[j].r = rand() % 10 + 15;
+				Enemy[j].color = RGB(rand() % 256, rand() % 256, rand() % 256);
+			}
+			//敌人吃玩家
+			else
+			{
+				if (invincibility == 0)
+				{
+					Enemy[j].r += player.r / 10;
+					player.x = Wide / 2;
+					player.y = Hight / 2;
+					player.r = 15;
+					invincibility = Invincibility;
+				}
+			}
+		}
+	}
+}
+//显示
+void Show()
+{
+
+	//设置地图
+	SetWorkingImage(&map);
+	//清屏
+	cleardevice();
+	//背景颜色
+	setbkcolor(RGB(46, 47, 68));
+	//划线颜色
+	//setlinecolor(RGB(230,231,239));
+	////划线
+	//for (int i = 0; i < Wide_map; i += 10)
+	//{
+	//	line(i, 0, i, Hight_map);
+	//}
+	//for (int i = 0; i < Hight_map; i += 10)
+	//{
+	//	line(0, i, Wide_map, i);
+	//}
+	//食物
+	for (int i = 0; i < Food_num; i++)
+	{
+		setfillcolor(Food[i].color);
+		solidcircle(Food[i].x, Food[i].y, Food[i].r);
+	}
+	//敌人
+	for (int i = 0; i < Enemy_num; i++)
+	{
+		setfillcolor(Enemy[i].color);
+		solidcircle(Enemy[i].x, Enemy[i].y, Enemy[i].r);
+	}
+	//玩家
+	setfillcolor(RED);
+	solidcircle(player.x, player.y, player.r);
+	SetWorkingImage();
+
+	int x = player.x - (Wide / 2);
+	int y = player.y - (Hight / 2);
+	//防止窗口越界
+	if (x < 0)
+	{
+		x = 0;
+	}
+	if (y < 0)
+	{
+		y = 0;
+	}
+	if (x > Wide_map - Wide)
+	{
+		x = Wide_map - Wide;
+	}
+	if (y > Hight_map - Hight)
+	{
+		y = Hight_map - Hight;
+	}
+	//把map输出到窗口上
+	putimage(0, 0, Wide, Hight, &map, x, y);
+}
+int main()
+{
+
+	initgraph(Wide, Hight);
+	Inset();
+	//缓冲
+	BeginBatchDraw();
+	while (1)
+	{
+		if (invincibility > 0)
+			invincibility--;
+		Show();
+		//玩家操作
+		Player_move();
+		Enemy_move();
+		EatFood();
+		//刷新
+		FlushBatchDraw();
+	}
+	closegraph();
+	return 0;
+}
