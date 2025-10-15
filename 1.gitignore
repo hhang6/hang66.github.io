@@ -1,0 +1,18 @@
+# 忽略编译产物
+*.exe
+*.pdb
+*.obj
+*.o
+# 忽略 VS 临时文件
+.vs/
+Debug/
+Release/
+# 忽略 MinGW 编译文件
+*.out
+# 忽略日志和缓存文件
+*.log
+*.cache
+# 忽略 EasyX 库文件（无需上传，别人使用时自行安装）
+easyx.h
+graphics.h
+libeasyx.a
