@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>球球大作战 - 带控制按钮版</title>
+    <title>球球大作战 - 修复版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
@@ -78,14 +78,14 @@
         <div class="relative w-full aspect-[9/16] md:aspect-[16/9] bg-slate-900 rounded-lg overflow-hidden game-shadow pulse-glow">
             <canvas id="gameCanvas" class="w-full h-full"></canvas>
             
-            <!-- 通用控制按钮 (所有设备可见) -->
+            <!-- 通用控制按钮 -->
             <div class="absolute top-4 right-4 z-20 flex gap-2">
                 <button id="pauseBtn" class="control-btn w-10 h-10 md:w-12 md:h-12">
                     <i class="fa fa-pause text-primary"></i>
                 </button>
             </div>
             
-            <!-- 方向控制按钮组 (移动设备为主，电脑也可显示) -->
+            <!-- 方向控制按钮组 -->
             <div class="absolute bottom-4 left-4 flex flex-col gap-2 z-20 md:hidden">
                 <div class="flex justify-center">
                     <button id="btnUp" class="control-btn w-14 h-14">
@@ -105,7 +105,7 @@
                 </div>
             </div>
             
-            <!-- 功能按钮组 (所有设备可见) -->
+            <!-- 功能按钮组 -->
             <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
                 <button id="btnBoost" class="control-btn w-14 h-14 md:w-16 md:h-16 bg-danger/30 border-danger/40">
                     <i class="fa fa-bolt text-danger"></i>
@@ -249,14 +249,49 @@
                     boost: false
                 };
                 
+                // 绑定DOM元素
+                this.bindDOMElements();
+                
                 // 初始化游戏
                 this.initGame();
                 
-                // 绑定事件监听
+                // 绑定事件监听（确保只绑定一次）
                 this.bindEvents();
                 
                 // 游戏循环
                 this.gameLoop();
+            }
+            
+            // 绑定DOM元素
+            bindDOMElements() {
+                // 菜单和按钮元素
+                this.startMenu = document.getElementById('startMenu');
+                this.startBtn = document.getElementById('startBtn');
+                this.pauseMenu = document.getElementById('pauseMenu');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.resumeBtn = document.getElementById('resumeBtn');
+                this.pauseRestartBtn = document.getElementById('pauseRestartBtn');
+                this.gameOverMenu = document.getElementById('gameOverMenu');
+                this.gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
+                
+                // 控制按钮
+                this.btnUp = document.getElementById('btnUp');
+                this.btnDown = document.getElementById('btnDown');
+                this.btnLeft = document.getElementById('btnLeft');
+                this.btnRight = document.getElementById('btnRight');
+                this.btnBoost = document.getElementById('btnBoost');
+                this.btnRestart = document.getElementById('btnRestart');
+                
+                // 摇杆元素
+                this.joystickElement = document.getElementById('joystick');
+                this.joystickKnob = document.getElementById('joystickKnob');
+                
+                // 分数显示元素
+                this.scoreDisplay = document.getElementById('score');
+                this.sizeDisplay = document.getElementById('size');
+                this.enemyCountDisplay = document.getElementById('enemy-count');
+                this.finalScoreDisplay = document.getElementById('finalScore');
+                this.finalSizeDisplay = document.getElementById('finalSize');
             }
             
             // 调整画布尺寸
@@ -340,249 +375,256 @@
                 });
             }
             
-            // 绑定事件监听
+            // 绑定事件监听（关键修复：确保事件只绑定一次且正确触发）
             bindEvents() {
-                // 键盘控制
-                window.addEventListener('keydown', (e) => {
-                    this.keys[e.key] = true;
-                    
-                    // 暂停游戏 (P键)
-                    if (e.key === 'p' || e.key === 'P') {
-                        if (this.gameState === 'playing') {
-                            this.pauseGame();
-                        } else if (this.gameState === 'paused') {
-                            this.resumeGame();
-                        }
-                    }
-                });
+                // 移除所有可能的旧事件监听，防止重复绑定
+                this.startBtn.removeEventListener('click', this.startGame.bind(this));
+                this.pauseBtn.removeEventListener('click', this.togglePause.bind(this));
+                this.resumeBtn.removeEventListener('click', this.resumeGame.bind(this));
+                this.pauseRestartBtn.removeEventListener('click', this.restartGame.bind(this));
+                this.gameOverRestartBtn.removeEventListener('click', this.restartGame.bind(this));
+                this.btnRestart.removeEventListener('click', this.restartGame.bind(this));
                 
-                window.addEventListener('keyup', (e) => {
-                    this.keys[e.key] = false;
-                });
+                // 重新绑定事件监听
+                this.startBtn.addEventListener('click', this.startGame.bind(this));
+                this.pauseBtn.addEventListener('click', this.togglePause.bind(this));
+                this.resumeBtn.addEventListener('click', this.resumeGame.bind(this));
+                this.pauseRestartBtn.addEventListener('click', this.restartGame.bind(this));
+                this.gameOverRestartBtn.addEventListener('click', this.restartGame.bind(this));
+                this.btnRestart.addEventListener('click', this.restartGame.bind(this));
+                
+                // 键盘控制
+                window.addEventListener('keydown', (e) => this.handleKeyDown(e));
+                window.addEventListener('keyup', (e) => this.handleKeyUp(e));
                 
                 // 鼠标控制
-                this.canvas.addEventListener('mousemove', (e) => {
-                    const rect = this.canvas.getBoundingClientRect();
-                    this.mouse.x = e.clientX - rect.left;
-                    this.mouse.y = e.clientY - rect.top;
-                });
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mousedown', () => this.handleMouseDown());
+                this.canvas.addEventListener('mouseup', () => this.handleMouseUp());
                 
-                this.canvas.addEventListener('mousedown', () => {
-                    this.mouse.down = true;
-                });
-                
-                this.canvas.addEventListener('mouseup', () => {
-                    this.mouse.down = false;
-                });
-                
-                // 虚拟按钮事件监听 (通用)
-                // 方向键
-                document.getElementById('btnUp').addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.up = true;
-                }, { passive: false });
-                document.getElementById('btnUp').addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.up = true;
-                });
-                
-                document.getElementById('btnDown').addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.down = true;
-                }, { passive: false });
-                document.getElementById('btnDown').addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.down = true;
-                });
-                
-                document.getElementById('btnLeft').addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.left = true;
-                }, { passive: false });
-                document.getElementById('btnLeft').addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.left = true;
-                });
-                
-                document.getElementById('btnRight').addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.right = true;
-                }, { passive: false });
-                document.getElementById('btnRight').addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.right = true;
-                });
-                
-                // 按钮释放事件
-                document.getElementById('btnUp').addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.up = false;
-                }, { passive: false });
-                document.getElementById('btnUp').addEventListener('mouseup', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.up = false;
-                });
-                document.getElementById('btnUp').addEventListener('mouseleave', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.up = false;
-                });
-                
-                document.getElementById('btnDown').addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.down = false;
-                }, { passive: false });
-                document.getElementById('btnDown').addEventListener('mouseup', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.down = false;
-                });
-                document.getElementById('btnDown').addEventListener('mouseleave', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.down = false;
-                });
-                
-                document.getElementById('btnLeft').addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.left = false;
-                }, { passive: false });
-                document.getElementById('btnLeft').addEventListener('mouseup', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.left = false;
-                });
-                document.getElementById('btnLeft').addEventListener('mouseleave', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.left = false;
-                });
-                
-                document.getElementById('btnRight').addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.right = false;
-                }, { passive: false });
-                document.getElementById('btnRight').addEventListener('mouseup', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.right = false;
-                });
-                document.getElementById('btnRight').addEventListener('mouseleave', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.right = false;
-                });
-                
-                // 加速按钮
-                document.getElementById('btnBoost').addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.boost = true;
-                    this.keys[' '] = true;
-                }, { passive: false });
-                document.getElementById('btnBoost').addEventListener('mousedown', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.boost = true;
-                    this.keys[' '] = true;
-                });
-                
-                document.getElementById('btnBoost').addEventListener('touchend', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.boost = false;
-                    this.keys[' '] = false;
-                }, { passive: false });
-                document.getElementById('btnBoost').addEventListener('mouseup', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.boost = false;
-                    this.keys[' '] = false;
-                });
-                document.getElementById('btnBoost').addEventListener('mouseleave', (e) => {
-                    e.preventDefault();
-                    this.virtualButtons.boost = false;
-                    this.keys[' '] = false;
-                });
-                
-                // 重新开始按钮
-                document.getElementById('btnRestart').addEventListener('click', () => {
-                    this.restartGame();
-                });
+                // 虚拟按钮事件监听
+                this.bindVirtualButtonEvents();
                 
                 // 触摸控制（摇杆）
                 if (this.isMobile) {
-                    const joystick = document.getElementById('joystick');
-                    const joystickKnob = document.getElementById('joystickKnob');
-                    
-                    joystick.addEventListener('touchstart', (e) => {
-                        e.preventDefault();
-                        const touch = e.touches[0];
-                        const rect = joystick.getBoundingClientRect();
-                        this.joystick.startX = touch.clientX;
-                        this.joystick.startY = touch.clientY;
-                        this.joystick.currentX = touch.clientX;
-                        this.joystick.currentY = touch.clientY;
-                        this.joystick.active = true;
-                    }, { passive: false });
-                    
-                    joystick.addEventListener('touchmove', (e) => {
-                        e.preventDefault();
-                        if (!this.joystick.active) return;
-                        
-                        const touch = e.touches[0];
-                        this.joystick.currentX = touch.clientX;
-                        this.joystick.currentY = touch.clientY;
-                        
-                        const dx = this.joystick.currentX - this.joystick.startX;
-                        const dy = this.joystick.currentY - this.joystick.startY;
-                        const maxOffset = 35;
-                        const distance = Math.min(this.getDistance(
-                            {x: this.joystick.currentX, y: this.joystick.currentY},
-                            {x: this.joystick.startX, y: this.joystick.startY}
-                        ), maxOffset);
-                        
-                        const angle = Math.atan2(dy, dx);
-                        joystickKnob.style.transform = `translate(-50%, -50%) translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
-                        
-                        const speedRatio = distance / maxOffset;
-                        this.player.velocity.x = Math.cos(angle) * this.player.speed * speedRatio;
-                        this.player.velocity.y = Math.sin(angle) * this.player.speed * speedRatio;
-                    }, { passive: false });
-                    
-                    joystick.addEventListener('touchend', (e) => {
-                        e.preventDefault();
-                        this.joystick.active = false;
-                        joystickKnob.style.transform = 'translate(-50%, -50%)';
-                        this.player.velocity.x = 0;
-                        this.player.velocity.y = 0;
-                    }, { passive: false });
+                    this.bindJoystickEvents();
                 }
-                
-                // 暂停和继续按钮
-                document.getElementById('pauseBtn').addEventListener('click', () => {
-                    if (this.gameState === 'playing') {
-                        this.pauseGame();
-                    } else if (this.gameState === 'paused') {
-                        this.resumeGame();
-                    }
-                });
-                
-                document.getElementById('resumeBtn').addEventListener('click', () => {
-                    this.resumeGame();
-                });
-                
-                document.getElementById('pauseRestartBtn').addEventListener('click', () => {
-                    this.restartGame();
-                });
-                
-                // 开始和重启按钮
-                document.getElementById('startBtn').addEventListener('click', () => {
-                    this.startGame();
-                });
-                
-                document.getElementById('gameOverRestartBtn').addEventListener('click', () => {
-                    this.restartGame();
-                });
             }
             
-            // 开始游戏
+            // 绑定虚拟按钮事件
+            bindVirtualButtonEvents() {
+                // 清除旧事件
+                this.btnUp.removeEventListener('touchstart', this.handleBtnUpStart.bind(this));
+                this.btnUp.removeEventListener('mousedown', this.handleBtnUpStart.bind(this));
+                this.btnUp.removeEventListener('touchend', this.handleBtnUpEnd.bind(this));
+                this.btnUp.removeEventListener('mouseup', this.handleBtnUpEnd.bind(this));
+                this.btnUp.removeEventListener('mouseleave', this.handleBtnUpEnd.bind(this));
+                
+                this.btnDown.removeEventListener('touchstart', this.handleBtnDownStart.bind(this));
+                this.btnDown.removeEventListener('mousedown', this.handleBtnDownStart.bind(this));
+                this.btnDown.removeEventListener('touchend', this.handleBtnDownEnd.bind(this));
+                this.btnDown.removeEventListener('mouseup', this.handleBtnDownEnd.bind(this));
+                this.btnDown.removeEventListener('mouseleave', this.handleBtnDownEnd.bind(this));
+                
+                this.btnLeft.removeEventListener('touchstart', this.handleBtnLeftStart.bind(this));
+                this.btnLeft.removeEventListener('mousedown', this.handleBtnLeftStart.bind(this));
+                this.btnLeft.removeEventListener('touchend', this.handleBtnLeftEnd.bind(this));
+                this.btnLeft.removeEventListener('mouseup', this.handleBtnLeftEnd.bind(this));
+                this.btnLeft.removeEventListener('mouseleave', this.handleBtnLeftEnd.bind(this));
+                
+                this.btnRight.removeEventListener('touchstart', this.handleBtnRightStart.bind(this));
+                this.btnRight.removeEventListener('mousedown', this.handleBtnRightStart.bind(this));
+                this.btnRight.removeEventListener('touchend', this.handleBtnRightEnd.bind(this));
+                this.btnRight.removeEventListener('mouseup', this.handleBtnRightEnd.bind(this));
+                this.btnRight.removeEventListener('mouseleave', this.handleBtnRightEnd.bind(this));
+                
+                this.btnBoost.removeEventListener('touchstart', this.handleBtnBoostStart.bind(this));
+                this.btnBoost.removeEventListener('mousedown', this.handleBtnBoostStart.bind(this));
+                this.btnBoost.removeEventListener('touchend', this.handleBtnBoostEnd.bind(this));
+                this.btnBoost.removeEventListener('mouseup', this.handleBtnBoostEnd.bind(this));
+                this.btnBoost.removeEventListener('mouseleave', this.handleBtnBoostEnd.bind(this));
+                
+                // 绑定新事件
+                this.btnUp.addEventListener('touchstart', this.handleBtnUpStart.bind(this), { passive: false });
+                this.btnUp.addEventListener('mousedown', this.handleBtnUpStart.bind(this));
+                this.btnUp.addEventListener('touchend', this.handleBtnUpEnd.bind(this), { passive: false });
+                this.btnUp.addEventListener('mouseup', this.handleBtnUpEnd.bind(this));
+                this.btnUp.addEventListener('mouseleave', this.handleBtnUpEnd.bind(this));
+                
+                this.btnDown.addEventListener('touchstart', this.handleBtnDownStart.bind(this), { passive: false });
+                this.btnDown.addEventListener('mousedown', this.handleBtnDownStart.bind(this));
+                this.btnDown.addEventListener('touchend', this.handleBtnDownEnd.bind(this), { passive: false });
+                this.btnDown.addEventListener('mouseup', this.handleBtnDownEnd.bind(this));
+                this.btnDown.addEventListener('mouseleave', this.handleBtnDownEnd.bind(this));
+                
+                this.btnLeft.addEventListener('touchstart', this.handleBtnLeftStart.bind(this), { passive: false });
+                this.btnLeft.addEventListener('mousedown', this.handleBtnLeftStart.bind(this));
+                this.btnLeft.addEventListener('touchend', this.handleBtnLeftEnd.bind(this), { passive: false });
+                this.btnLeft.addEventListener('mouseup', this.handleBtnLeftEnd.bind(this));
+                this.btnLeft.addEventListener('mouseleave', this.handleBtnLeftEnd.bind(this));
+                
+                this.btnRight.addEventListener('touchstart', this.handleBtnRightStart.bind(this), { passive: false });
+                this.btnRight.addEventListener('mousedown', this.handleBtnRightStart.bind(this));
+                this.btnRight.addEventListener('touchend', this.handleBtnRightEnd.bind(this), { passive: false });
+                this.btnRight.addEventListener('mouseup', this.handleBtnRightEnd.bind(this));
+                this.btnRight.addEventListener('mouseleave', this.handleBtnRightEnd.bind(this));
+                
+                this.btnBoost.addEventListener('touchstart', this.handleBtnBoostStart.bind(this), { passive: false });
+                this.btnBoost.addEventListener('mousedown', this.handleBtnBoostStart.bind(this));
+                this.btnBoost.addEventListener('touchend', this.handleBtnBoostEnd.bind(this), { passive: false });
+                this.btnBoost.addEventListener('mouseup', this.handleBtnBoostEnd.bind(this));
+                this.btnBoost.addEventListener('mouseleave', this.handleBtnBoostEnd.bind(this));
+            }
+            
+            // 绑定摇杆事件
+            bindJoystickEvents() {
+                // 清除旧事件
+                this.joystickElement.removeEventListener('touchstart', this.handleJoystickStart.bind(this));
+                this.joystickElement.removeEventListener('touchmove', this.handleJoystickMove.bind(this));
+                this.joystickElement.removeEventListener('touchend', this.handleJoystickEnd.bind(this));
+                
+                // 绑定新事件
+                this.joystickElement.addEventListener('touchstart', this.handleJoystickStart.bind(this), { passive: false });
+                this.joystickElement.addEventListener('touchmove', this.handleJoystickMove.bind(this), { passive: false });
+                this.joystickElement.addEventListener('touchend', this.handleJoystickEnd.bind(this), { passive: false });
+            }
+            
+            // 事件处理函数
+            handleKeyDown(e) {
+                this.keys[e.key] = true;
+                
+                // 暂停游戏 (P键)
+                if (e.key === 'p' || e.key === 'P') {
+                    this.togglePause();
+                }
+            }
+            
+            handleKeyUp(e) {
+                this.keys[e.key] = false;
+            }
+            
+            handleMouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.mouse.x = e.clientX - rect.left;
+                this.mouse.y = e.clientY - rect.top;
+            }
+            
+            handleMouseDown() {
+                this.mouse.down = true;
+            }
+            
+            handleMouseUp() {
+                this.mouse.down = false;
+            }
+            
+            // 虚拟按钮事件处理
+            handleBtnUpStart() {
+                this.virtualButtons.up = true;
+            }
+            
+            handleBtnUpEnd() {
+                this.virtualButtons.up = false;
+            }
+            
+            handleBtnDownStart() {
+                this.virtualButtons.down = true;
+            }
+            
+            handleBtnDownEnd() {
+                this.virtualButtons.down = false;
+            }
+            
+            handleBtnLeftStart() {
+                this.virtualButtons.left = true;
+            }
+            
+            handleBtnLeftEnd() {
+                this.virtualButtons.left = false;
+            }
+            
+            handleBtnRightStart() {
+                this.virtualButtons.right = true;
+            }
+            
+            handleBtnRightEnd() {
+                this.virtualButtons.right = false;
+            }
+            
+            handleBtnBoostStart() {
+                this.virtualButtons.boost = true;
+                this.keys[' '] = true;
+            }
+            
+            handleBtnBoostEnd() {
+                this.virtualButtons.boost = false;
+                this.keys[' '] = false;
+            }
+            
+            // 摇杆事件处理
+            handleJoystickStart(e) {
+                e.preventDefault();
+                const touch = e.touches[0];
+                this.joystick.startX = touch.clientX;
+                this.joystick.startY = touch.clientY;
+                this.joystick.currentX = touch.clientX;
+                this.joystick.currentY = touch.clientY;
+                this.joystick.active = true;
+            }
+            
+            handleJoystickMove(e) {
+                e.preventDefault();
+                if (!this.joystick.active) return;
+                
+                const touch = e.touches[0];
+                this.joystick.currentX = touch.clientX;
+                this.joystick.currentY = touch.clientY;
+                
+                const dx = this.joystick.currentX - this.joystick.startX;
+                const dy = this.joystick.currentY - this.joystick.startY;
+                const maxOffset = 35;
+                const distance = Math.min(this.getDistance(
+                    {x: this.joystick.currentX, y: this.joystick.currentY},
+                    {x: this.joystick.startX, y: this.joystick.startY}
+                ), maxOffset);
+                
+                const angle = Math.atan2(dy, dx);
+                this.joystickKnob.style.transform = `translate(-50%, -50%) translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
+                
+                const speedRatio = distance / maxOffset;
+                this.player.velocity.x = Math.cos(angle) * this.player.speed * speedRatio;
+                this.player.velocity.y = Math.sin(angle) * this.player.speed * speedRatio;
+            }
+            
+            handleJoystickEnd(e) {
+                e.preventDefault();
+                this.joystick.active = false;
+                this.joystickKnob.style.transform = 'translate(-50%, -50%)';
+                this.player.velocity.x = 0;
+                this.player.velocity.y = 0;
+            }
+            
+            // 开始游戏（关键修复：确保菜单正确隐藏且游戏状态更新）
             startGame() {
+                if (this.gameState !== 'menu') return;
+                
                 this.gameState = 'playing';
-                document.getElementById('startMenu').classList.add('hidden');
+                this.startMenu.classList.add('hidden');
                 
                 // 手机端显示控制按钮和摇杆
                 if (this.isMobile) {
-                    document.getElementById('joystick').classList.remove('hidden');
+                    this.joystickElement.classList.remove('hidden');
+                }
+                
+                // 强制重绘
+                this.draw();
+            }
+            
+            // 切换暂停状态
+            togglePause() {
+                if (this.gameState === 'playing') {
+                    this.pauseGame();
+                } else if (this.gameState === 'paused') {
+                    this.resumeGame();
                 }
             }
             
@@ -590,7 +632,7 @@
             pauseGame() {
                 if (this.gameState === 'playing') {
                     this.gameState = 'paused';
-                    document.getElementById('pauseMenu').classList.remove('hidden');
+                    this.pauseMenu.classList.remove('hidden');
                 }
             }
             
@@ -598,28 +640,28 @@
             resumeGame() {
                 if (this.gameState === 'paused') {
                     this.gameState = 'playing';
-                    document.getElementById('pauseMenu').classList.add('hidden');
+                    this.pauseMenu.classList.add('hidden');
                 }
             }
             
             // 结束游戏
             gameOver() {
                 this.gameState = 'over';
-                document.getElementById('gameOverMenu').classList.remove('hidden');
-                document.getElementById('finalScore').textContent = this.player.score;
-                document.getElementById('finalSize').textContent = Math.round(this.player.radius);
+                this.gameOverMenu.classList.remove('hidden');
+                this.finalScoreDisplay.textContent = this.player.score;
+                this.finalSizeDisplay.textContent = Math.round(this.player.radius);
             }
             
             // 重启游戏
             restartGame() {
                 this.initGame();
                 this.gameState = 'playing';
-                document.getElementById('startMenu').classList.add('hidden');
-                document.getElementById('pauseMenu').classList.add('hidden');
-                document.getElementById('gameOverMenu').classList.add('hidden');
+                this.startMenu.classList.add('hidden');
+                this.pauseMenu.classList.add('hidden');
+                this.gameOverMenu.classList.add('hidden');
                 
                 if (this.isMobile) {
-                    document.getElementById('joystick').classList.remove('hidden');
+                    this.joystickElement.classList.remove('hidden');
                 }
             }
             
@@ -862,9 +904,9 @@
             
             // 更新UI显示
             updateUI() {
-                document.getElementById('score').textContent = this.player.score;
-                document.getElementById('size').textContent = Math.round(this.player.radius);
-                document.getElementById('enemy-count').textContent = this.enemies.length;
+                this.scoreDisplay.textContent = this.player.score;
+                this.sizeDisplay.textContent = Math.round(this.player.radius);
+                this.enemyCountDisplay.textContent = this.enemies.length;
             }
             
             // 绘制游戏
@@ -935,3 +977,62 @@
                 for (let y = 0; y < this.canvas.height; y += gridSize) {
                     this.ctx.beginPath();
                     this.ctx.moveTo(0, y);
+                    this.ctx.lineTo(this.canvas.width, y);
+                    this.ctx.stroke();
+                }
+                
+                // 绘制垂直线
+                for (let x = 0; x < this.canvas.width; x += gridSize) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, 0);
+                    this.ctx.lineTo(x, this.canvas.height);
+                    this.ctx.stroke();
+                }
+            }
+            
+            // 绘制圆形
+            drawCircle(x, y, radius, color) {
+                this.ctx.fillStyle = color;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                this.ctx.fill();
+                
+                // 添加高光效果
+                const gradient = this.ctx.createRadialGradient(
+                    x - radius * 0.3, y - radius * 0.3, radius * 0.1,
+                    x, y, radius
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+                gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                this.ctx.fillStyle = gradient;
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                this.ctx.fill();
+            }
+            
+            // 计算两点之间的距离
+            getDistance(obj1, obj2) {
+                const dx = obj1.x - obj2.x;
+                const dy = obj1.y - obj2.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+            
+            // 游戏主循环
+            gameLoop() {
+                this.update();
+                this.draw();
+                requestAnimationFrame(() => this.gameLoop());
+            }
+        }
+        
+        // 页面加载完成后初始化游戏（关键修复：确保DOM加载完成后再初始化）
+        window.addEventListener('DOMContentLoaded', () => {
+            // 确保DOM完全加载
+            setTimeout(() => {
+                new AgarioGame();
+            }, 100);
+        });
+    </script>
+</body>
+</html>
