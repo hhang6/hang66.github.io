@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>球球大作战 - 带暂停功能</title>
+    <title>球球大作战 - 手机端仅摇杆版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
@@ -47,6 +47,13 @@
             .pause-btn {
                 @apply control-btn w-12 h-12 md:w-14 md:h-14 bg-primary/30 border-primary/50;
             }
+            .joystick-container {
+                @apply fixed bottom-6 left-6 w-32 h-32 md:hidden bg-white/10 backdrop-blur-sm rounded-full border border-white/20 
+                       flex items-center justify-center touch-manipulation z-20;
+            }
+            .joystick-knob {
+                @apply w-16 h-16 bg-primary/40 rounded-full touch-manipulation transition-transform duration-100;
+            }
         }
     </style>
 </head>
@@ -78,40 +85,20 @@
         <div class="relative w-full aspect-[9/16] md:aspect-[16/9] bg-slate-900 rounded-lg overflow-hidden game-shadow pulse-glow">
             <canvas id="gameCanvas" class="w-full h-full"></canvas>
             
-            <!-- 明确的暂停按钮 -->
+            <!-- 暂停按钮 -->
             <div class="absolute top-4 right-4 z-20">
                 <button id="pauseBtn" class="pause-btn" aria-label="暂停游戏">
                     <i class="fa fa-pause text-primary text-xl"></i>
                 </button>
             </div>
             
-            <!-- 方向控制按钮组 -->
-            <div class="absolute bottom-4 left-4 flex flex-col gap-2 z-20 md:hidden">
-                <div class="flex justify-center">
-                    <button id="btnUp" class="control-btn w-14 h-14">
-                        <i class="fa fa-arrow-up"></i>
-                    </button>
-                </div>
-                <div class="flex gap-2">
-                    <button id="btnLeft" class="control-btn w-14 h-14">
-                        <i class="fa fa-arrow-left"></i>
-                    </button>
-                    <button id="btnDown" class="control-btn w-14 h-14">
-                        <i class="fa fa-arrow-down"></i>
-                    </button>
-                    <button id="btnRight" class="control-btn w-14 h-14">
-                        <i class="fa fa-arrow-right"></i>
-                    </button>
-                </div>
-            </div>
-            
-            <!-- 功能按钮组 -->
-            <div class="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
-                <button id="btnBoost" class="control-btn w-14 h-14 md:w-16 md:h-16 bg-danger/30 border-danger/40">
-                    <i class="fa fa-bolt text-danger"></i>
+            <!-- 功能按钮组（仅加速和重启，移除方向键） -->
+            <div class="absolute bottom-6 right-6 flex flex-col gap-4 z-20">
+                <button id="btnBoost" class="control-btn w-16 h-16 bg-danger/30 border-danger/40">
+                    <i class="fa fa-bolt text-danger text-xl"></i>
                 </button>
-                <button id="btnRestart" class="control-btn w-14 h-14 md:w-16 md:h-16 bg-secondary/30 border-secondary/40">
-                    <i class="fa fa-refresh text-secondary"></i>
+                <button id="btnRestart" class="control-btn w-16 h-16 bg-secondary/30 border-secondary/40">
+                    <i class="fa fa-refresh text-secondary text-xl"></i>
                 </button>
             </div>
             
@@ -128,8 +115,8 @@
                         <h3 class="font-bold text-primary mb-1.5">控制方式</h3>
                         <ul class="text-slate-300 space-y-1">
                             <li><i class="fa fa-arrows mr-2 text-secondary"></i>电脑：方向键/WASD/鼠标</li>
-                            <li><i class="fa fa-mobile mr-2 text-secondary"></i>手机：虚拟按键或摇杆</li>
-                            <li><i class="fa fa-bolt mr-2 text-secondary"></i>加速键：消耗大小加速</li>
+                            <li><i class="fa fa-mobile mr-2 text-secondary"></i>手机：左下角摇杆控制方向</li>
+                            <li><i class="fa fa-bolt mr-2 text-secondary"></i>右下角按钮：消耗大小加速</li>
                             <li><i class="fa fa-pause mr-2 text-secondary"></i><strong>暂停键：</strong>右上角按钮或P键</li>
                         </ul>
                     </div>
@@ -171,9 +158,9 @@
                 </button>
             </div>
             
-            <!-- 移动设备虚拟摇杆 -->
-            <div id="joystick" class="fixed bottom-32 left-5 w-28 h-28 md:hidden bg-white/10 backdrop-blur-sm rounded-full border border-white/20 hidden touch-manipulation">
-                <div id="joystickKnob" class="absolute top-1/2 left-1/2 w-14 h-14 bg-primary/40 rounded-full transform -translate-x-1/2 -translate-y-1/2 touch-manipulation"></div>
+            <!-- 移动设备虚拟摇杆（优化尺寸和样式，仅保留摇杆） -->
+            <div id="joystick" class="joystick-container">
+                <div id="joystickKnob" class="joystick-knob"></div>
             </div>
         </div>
         
@@ -198,14 +185,14 @@
                 this.resizeCanvas();
                 window.addEventListener('resize', () => this.resizeCanvas());
                 
-                // 游戏元素
+                // 游戏元素 - 保持之前优化的手机端低速配置
                 this.player = {
                     x: this.canvas.width / 2,
                     y: this.canvas.height / 2,
                     radius: 10,
                     color: '#EF4444',
-                    speed: this.isMobile ? 2.5 : 3,
-                    maxSpeed: this.isMobile ? 5 : 6,
+                    speed: this.isMobile ? 1.8 : 3, // 手机端低速
+                    maxSpeed: this.isMobile ? 3.2 : 6,
                     velocity: { x: 0, y: 0 },
                     invincible: false,
                     invincibilityTimer: 0,
@@ -215,20 +202,20 @@
                 // 游戏配置
                 this.config = {
                     foodCount: this.isMobile ? 100 : 150,
-                    enemyCount: this.isMobile ? 10 : 15,
+                    enemyCount: this.isMobile ? 8 : 15, // 手机端敌人更少
                     foodMinRadius: 2,
                     foodMaxRadius: 6,
                     enemyMinRadius: 8,
-                    enemyMaxRadius: 25,
+                    enemyMaxRadius: 22, // 手机端敌人更小
                     invincibilityTime: 200,
-                    boostConsumption: 0.02,
-                    playerGrowthRate: 0.1,
-                    enemyGrowthRate: 0.05
+                    boostConsumption: this.isMobile ? 0.015 : 0.02, // 手机端加速消耗更低
+                    playerGrowthRate: 0.12,
+                    enemyGrowthRate: this.isMobile ? 0.04 : 0.05
                 };
                 
                 // 游戏状态
                 this.gameState = 'menu'; // menu, playing, paused, over
-                this.gamePaused = false; // 明确的暂停状态变量
+                this.gamePaused = false;
                 this.food = [];
                 this.enemies = [];
                 this.keys = {};
@@ -238,52 +225,40 @@
                     startX: 0, 
                     startY: 0,
                     currentX: 0,
-                    currentY: 0
+                    currentY: 0,
+                    maxOffset: 40 // 摇杆最大偏移距离，优化操控精度
                 };
                 
-                // 虚拟按钮状态
-                this.virtualButtons = {
-                    up: false,
-                    down: false,
-                    left: false,
-                    right: false,
-                    boost: false
-                };
-                
-                // 绑定DOM元素
+                // 绑定DOM元素（移除方向键相关元素）
                 this.bindDOMElements();
                 
                 // 初始化游戏
                 this.initGame();
                 
-                // 绑定事件监听
+                // 绑定事件监听（移除方向键事件）
                 this.bindEvents();
                 
                 // 游戏循环
                 this.gameLoop();
             }
             
-            // 绑定DOM元素
+            // 绑定DOM元素（移除方向键按钮）
             bindDOMElements() {
                 // 菜单和按钮元素
                 this.startMenu = document.getElementById('startMenu');
                 this.startBtn = document.getElementById('startBtn');
                 this.pauseMenu = document.getElementById('pauseMenu');
-                this.pauseBtn = document.getElementById('pauseBtn'); // 暂停按钮
+                this.pauseBtn = document.getElementById('pauseBtn');
                 this.resumeBtn = document.getElementById('resumeBtn');
                 this.pauseRestartBtn = document.getElementById('pauseRestartBtn');
                 this.gameOverMenu = document.getElementById('gameOverMenu');
                 this.gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
                 
-                // 其他控制按钮
-                this.btnUp = document.getElementById('btnUp');
-                this.btnDown = document.getElementById('btnDown');
-                this.btnLeft = document.getElementById('btnLeft');
-                this.btnRight = document.getElementById('btnRight');
+                // 仅保留功能按钮（加速、重启）
                 this.btnBoost = document.getElementById('btnBoost');
                 this.btnRestart = document.getElementById('btnRestart');
                 
-                // 摇杆元素
+                // 摇杆元素（重点保留）
                 this.joystickElement = document.getElementById('joystick');
                 this.joystickKnob = document.getElementById('joystickKnob');
                 
@@ -316,8 +291,8 @@
                     y: this.canvas.height / 2,
                     radius: 10,
                     color: '#EF4444',
-                    speed: this.isMobile ? 2.5 : 3,
-                    maxSpeed: this.isMobile ? 5 : 6,
+                    speed: this.isMobile ? 1.8 : 3,
+                    maxSpeed: this.isMobile ? 3.2 : 6,
                     velocity: { x: 0, y: 0 },
                     invincible: false,
                     invincibilityTimer: 0,
@@ -368,38 +343,51 @@
                 const hue = 120 + Math.random() * 60;
                 const color = this.isMobile ? `hsl(${hue}, 80%, 45%)` : `hsl(${hue}, 70%, 50%)`;
                 
+                // 手机端敌人速度更低
+                const enemySpeed = this.isMobile ? (0.6 + Math.random() * 0.9) : (1 + Math.random() * 1.5);
+                
                 this.enemies.push({
                     x, y, radius, color,
-                    speed: this.isMobile ? 0.8 + Math.random() * 1.2 : 1 + Math.random() * 1.5,
+                    speed: enemySpeed,
                     velocity: { x: 0, y: 0 },
                     target: null
                 });
             }
             
-            // 绑定事件监听
+            // 绑定事件监听（移除方向键事件，强化摇杆事件）
             bindEvents() {
-                // 移除所有可能的旧事件监听
+                // 移除旧事件监听
                 this.startBtn.removeEventListener('click', this.startGame.bind(this));
                 this.pauseBtn.removeEventListener('click', this.togglePause.bind(this));
                 this.resumeBtn.removeEventListener('click', this.resumeGame.bind(this));
                 this.pauseRestartBtn.removeEventListener('click', this.restartGame.bind(this));
                 this.gameOverRestartBtn.removeEventListener('click', this.restartGame.bind(this));
                 this.btnRestart.removeEventListener('click', this.restartGame.bind(this));
+                this.btnBoost.removeEventListener('touchstart', this.handleBoostStart.bind(this));
+                this.btnBoost.removeEventListener('mousedown', this.handleBoostStart.bind(this));
+                this.btnBoost.removeEventListener('touchend', this.handleBoostEnd.bind(this));
+                this.btnBoost.removeEventListener('mouseup', this.handleBoostEnd.bind(this));
+                this.btnBoost.removeEventListener('mouseleave', this.handleBoostEnd.bind(this));
                 
-                // 绑定暂停按钮事件（关键部分）
-                this.pauseBtn.addEventListener('click', this.togglePause.bind(this));
-                
-                // 绑定其他按钮事件
+                // 绑定核心按钮事件
                 this.startBtn.addEventListener('click', this.startGame.bind(this));
+                this.pauseBtn.addEventListener('click', this.togglePause.bind(this));
                 this.resumeBtn.addEventListener('click', this.resumeGame.bind(this));
                 this.pauseRestartBtn.addEventListener('click', this.restartGame.bind(this));
                 this.gameOverRestartBtn.addEventListener('click', this.restartGame.bind(this));
                 this.btnRestart.addEventListener('click', this.restartGame.bind(this));
                 
-                // 键盘控制 - 增加P键暂停支持
+                // 加速按钮事件
+                this.btnBoost.addEventListener('touchstart', this.handleBoostStart.bind(this), { passive: false });
+                this.btnBoost.addEventListener('mousedown', this.handleBoostStart.bind(this));
+                this.btnBoost.addEventListener('touchend', this.handleBoostEnd.bind(this), { passive: false });
+                this.btnBoost.addEventListener('mouseup', this.handleBoostEnd.bind(this));
+                this.btnBoost.addEventListener('mouseleave', this.handleBoostEnd.bind(this));
+                
+                // 键盘控制（电脑端）
                 window.addEventListener('keydown', (e) => {
                     this.keys[e.key] = true;
-                    // P键暂停/继续
+                    // P键暂停
                     if (e.key === 'p' || e.key === 'P') {
                         this.togglePause();
                     }
@@ -408,7 +396,7 @@
                     this.keys[e.key] = false;
                 });
                 
-                // 鼠标控制
+                // 鼠标控制（电脑端）
                 this.canvas.addEventListener('mousemove', (e) => {
                     const rect = this.canvas.getBoundingClientRect();
                     this.mouse.x = e.clientX - rect.left;
@@ -417,103 +405,85 @@
                 this.canvas.addEventListener('mousedown', () => this.mouse.down = true);
                 this.canvas.addEventListener('mouseup', () => this.mouse.down = false);
                 
-                // 虚拟按钮事件监听
-                this.bindVirtualButtonEvents();
-                
-                // 触摸控制（摇杆）
+                // 强化手机端摇杆事件（核心控制）
                 if (this.isMobile) {
                     this.bindJoystickEvents();
                 }
             }
             
-            // 绑定虚拟按钮事件
-            bindVirtualButtonEvents() {
-                // 方向按钮事件
-                this.btnUp.addEventListener('touchstart', () => this.virtualButtons.up = true, { passive: false });
-                this.btnUp.addEventListener('mousedown', () => this.virtualButtons.up = true);
-                this.btnUp.addEventListener('touchend', () => this.virtualButtons.up = false, { passive: false });
-                this.btnUp.addEventListener('mouseup', () => this.virtualButtons.up = false);
-                this.btnUp.addEventListener('mouseleave', () => this.virtualButtons.up = false);
-                
-                this.btnDown.addEventListener('touchstart', () => this.virtualButtons.down = true, { passive: false });
-                this.btnDown.addEventListener('mousedown', () => this.virtualButtons.down = true);
-                this.btnDown.addEventListener('touchend', () => this.virtualButtons.down = false, { passive: false });
-                this.btnDown.addEventListener('mouseup', () => this.virtualButtons.down = false);
-                this.btnDown.addEventListener('mouseleave', () => this.virtualButtons.down = false);
-                
-                this.btnLeft.addEventListener('touchstart', () => this.virtualButtons.left = true, { passive: false });
-                this.btnLeft.addEventListener('mousedown', () => this.virtualButtons.left = true);
-                this.btnLeft.addEventListener('touchend', () => this.virtualButtons.left = false, { passive: false });
-                this.btnLeft.addEventListener('mouseup', () => this.virtualButtons.left = false);
-                this.btnLeft.addEventListener('mouseleave', () => this.virtualButtons.left = false);
-                
-                this.btnRight.addEventListener('touchstart', () => this.virtualButtons.right = true, { passive: false });
-                this.btnRight.addEventListener('mousedown', () => this.virtualButtons.right = true);
-                this.btnRight.addEventListener('touchend', () => this.virtualButtons.right = false, { passive: false });
-                this.btnRight.addEventListener('mouseup', () => this.virtualButtons.right = false);
-                this.btnRight.addEventListener('mouseleave', () => this.virtualButtons.right = false);
-                
-                // 加速按钮事件
-                this.btnBoost.addEventListener('touchstart', () => {
-                    this.virtualButtons.boost = true;
-                    this.keys[' '] = true;
-                }, { passive: false });
-                this.btnBoost.addEventListener('mousedown', () => {
-                    this.virtualButtons.boost = true;
-                    this.keys[' '] = true;
-                });
-                this.btnBoost.addEventListener('touchend', () => {
-                    this.virtualButtons.boost = false;
-                    this.keys[' '] = false;
-                }, { passive: false });
-                this.btnBoost.addEventListener('mouseup', () => {
-                    this.virtualButtons.boost = false;
-                    this.keys[' '] = false;
-                });
-                this.btnBoost.addEventListener('mouseleave', () => {
-                    this.virtualButtons.boost = false;
-                    this.keys[' '] = false;
-                });
-            }
-            
-            // 绑定摇杆事件
+            // 绑定摇杆事件（优化操控体验）
             bindJoystickEvents() {
+                // 摇杆触摸开始
                 this.joystickElement.addEventListener('touchstart', (e) => {
                     e.preventDefault();
                     const touch = e.touches[0];
-                    this.joystick.startX = touch.clientX;
-                    this.joystick.startY = touch.clientY;
+                    const rect = this.joystickElement.getBoundingClientRect();
+                    // 记录摇杆中心点作为起始位置
+                    this.joystick.startX = rect.left + rect.width / 2;
+                    this.joystick.startY = rect.top + rect.height / 2;
+                    this.joystick.currentX = touch.clientX;
+                    this.joystick.currentY = touch.clientY;
                     this.joystick.active = true;
                 }, { passive: false });
                 
+                // 摇杆触摸移动（优化精度）
                 this.joystickElement.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     if (!this.joystick.active) return;
                     
                     const touch = e.touches[0];
-                    const dx = touch.clientX - this.joystick.startX;
-                    const dy = touch.clientY - this.joystick.startY;
-                    const maxOffset = 35;
-                    const distance = Math.min(this.getDistance(
-                        {x: touch.clientX, y: touch.clientY},
-                        {x: this.joystick.startX, y: this.joystick.startY}
-                    ), maxOffset);
+                    this.joystick.currentX = touch.clientX;
+                    this.joystick.currentY = touch.clientY;
                     
+                    // 计算偏移量和角度
+                    const dx = this.joystick.currentX - this.joystick.startX;
+                    const dy = this.joystick.currentY - this.joystick.startY;
+                    const distance = Math.min(
+                        Math.sqrt(dx * dx + dy * dy),
+                        this.joystick.maxOffset
+                    );
+                    
+                    // 计算移动角度
                     const angle = Math.atan2(dy, dx);
-                    this.joystickKnob.style.transform = `translate(-50%, -50%) translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
                     
-                    const speedRatio = distance / maxOffset;
+                    // 移动摇杆旋钮（视觉反馈）
+                    this.joystickKnob.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
+                    
+                    // 计算速度比例（让操控更线性）
+                    const speedRatio = (distance / this.joystick.maxOffset) * 0.95;
+                    // 设置玩家速度（保持低速特性）
                     this.player.velocity.x = Math.cos(angle) * this.player.speed * speedRatio;
                     this.player.velocity.y = Math.sin(angle) * this.player.speed * speedRatio;
                 }, { passive: false });
                 
+                // 摇杆触摸结束（复位）
                 this.joystickElement.addEventListener('touchend', (e) => {
                     e.preventDefault();
                     this.joystick.active = false;
-                    this.joystickKnob.style.transform = 'translate(-50%, -50%)';
+                    // 旋钮复位
+                    this.joystickKnob.style.transform = 'translate(0, 0)';
+                    // 速度清零
                     this.player.velocity.x = 0;
                     this.player.velocity.y = 0;
                 }, { passive: false });
+                
+                // 防止触摸离开区域后仍有速度
+                this.joystickElement.addEventListener('touchcancel', (e) => {
+                    e.preventDefault();
+                    this.joystick.active = false;
+                    this.joystickKnob.style.transform = 'translate(0, 0)';
+                    this.player.velocity.x = 0;
+                    this.player.velocity.y = 0;
+                }, { passive: false });
+            }
+            
+            // 加速按钮事件处理
+            handleBoostStart() {
+                this.keys[' '] = true;
+            }
+            
+            handleBoostEnd() {
+                this.keys[' '] = false;
             }
             
             // 开始游戏
@@ -524,13 +494,13 @@
                 this.gamePaused = false;
                 this.startMenu.classList.add('hidden');
                 
-                // 手机端显示控制按钮和摇杆
+                // 手机端确保摇杆可见（默认已显示）
                 if (this.isMobile) {
-                    this.joystickElement.classList.remove('hidden');
+                    this.joystickElement.style.display = 'flex';
                 }
             }
             
-            // 切换暂停状态（核心暂停功能）
+            // 切换暂停状态
             togglePause() {
                 if (this.gameState === 'playing') {
                     this.pauseGame();
@@ -545,7 +515,6 @@
                     this.gameState = 'paused';
                     this.gamePaused = true;
                     this.pauseMenu.classList.remove('hidden');
-                    // 暂停时更改暂停按钮图标
                     this.pauseBtn.innerHTML = '<i class="fa fa-play text-primary text-xl"></i>';
                 }
             }
@@ -556,7 +525,6 @@
                     this.gameState = 'playing';
                     this.gamePaused = false;
                     this.pauseMenu.classList.add('hidden');
-                    // 恢复时更改回暂停图标
                     this.pauseBtn.innerHTML = '<i class="fa fa-pause text-primary text-xl"></i>';
                 }
             }
@@ -578,18 +546,16 @@
                 this.startMenu.classList.add('hidden');
                 this.pauseMenu.classList.add('hidden');
                 this.gameOverMenu.classList.add('hidden');
-                
-                // 恢复暂停按钮图标
                 this.pauseBtn.innerHTML = '<i class="fa fa-pause text-primary text-xl"></i>';
                 
                 if (this.isMobile) {
-                    this.joystickElement.classList.remove('hidden');
+                    this.joystickElement.style.display = 'flex';
+                    this.joystickKnob.style.transform = 'translate(0, 0)';
                 }
             }
             
             // 更新游戏状态
             update() {
-                // 如果游戏暂停，不更新游戏状态
                 if (this.gameState !== 'playing' || this.gamePaused) return;
                 
                 // 更新无敌状态
@@ -600,7 +566,7 @@
                     }
                 }
                 
-                // 玩家移动控制
+                // 玩家移动控制（手机端仅摇杆，电脑端键盘/鼠标）
                 this.handlePlayerMovement();
                 
                 // 敌人AI移动
@@ -613,95 +579,93 @@
                 this.updateUI();
             }
             
-            // 处理玩家移动
+            // 处理玩家移动（区分设备）
             handlePlayerMovement() {
-                // 通用虚拟按钮控制
-                let moveX = 0;
-                let moveY = 0;
-                
-                if (this.virtualButtons.up) moveY = -1;
-                if (this.virtualButtons.down) moveY = 1;
-                if (this.virtualButtons.left) moveX = -1;
-                if (this.virtualButtons.right) moveX = 1;
-                
-                // 电脑端：键盘控制
-                if (!this.isMobile && moveX === 0 && moveY === 0) {
+                // 手机端：仅摇杆控制（已在事件中处理速度）
+                if (this.isMobile) {
+                    // 加速处理（摇杆控制+加速按钮）
+                    if (this.keys[' '] && this.player.radius > 15) {
+                        // 手机端加速倍率较低，保持操控性
+                        this.player.velocity.x *= 1.3;
+                        this.player.velocity.y *= 1.3;
+                        this.player.radius *= (1 - this.config.boostConsumption);
+                    }
+                } 
+                // 电脑端：键盘+鼠标控制
+                else {
+                    let moveX = 0;
+                    let moveY = 0;
+                    
+                    // 键盘控制
                     if (this.keys['ArrowUp'] || this.keys['w'] || this.keys['W']) moveY = -1;
                     if (this.keys['ArrowDown'] || this.keys['s'] || this.keys['S']) moveY = 1;
                     if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) moveX = -1;
                     if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) moveX = 1;
-                }
-                
-                // 电脑端：鼠标控制
-                if (!this.isMobile && this.mouse.down && moveX === 0 && moveY === 0) {
-                    const dx = this.mouse.x - this.player.x;
-                    const dy = this.mouse.y - this.player.y;
-                    const distance = this.getDistance(this.mouse, this.player);
                     
-                    if (distance > 10) {
-                        moveX = dx / distance;
-                        moveY = dy / distance;
+                    // 鼠标控制（优先级更高）
+                    if (this.mouse.down) {
+                        const dx = this.mouse.x - this.player.x;
+                        const dy = this.mouse.y - this.player.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance > 10) {
+                            moveX = dx / distance;
+                            moveY = dy / distance;
+                        }
+                    }
+                    
+                    // 处理移动向量
+                    if (moveX !== 0 || moveY !== 0) {
+                        const angle = Math.atan2(moveY, moveX);
+                        let speed = this.player.speed;
+                        
+                        // 加速
+                        if (this.keys[' '] && this.player.radius > 15) {
+                            speed = this.player.maxSpeed;
+                            this.player.radius *= (1 - this.config.boostConsumption);
+                        }
+                        
+                        this.player.velocity.x = Math.cos(angle) * speed;
+                        this.player.velocity.y = Math.sin(angle) * speed;
+                    } else {
+                        // 无输入时减速
+                        this.player.velocity.x *= 0.9;
+                        this.player.velocity.y *= 0.9;
                     }
                 }
                 
-                // 处理移动向量
-                if (moveX !== 0 || moveY !== 0) {
-                    const angle = Math.atan2(moveY, moveX);
-                    let speed = this.player.speed;
-                    
-                    // 加速（消耗大小）
-                    if ((this.keys[' '] || this.virtualButtons.boost) && this.player.radius > 15) {
-                        speed = this.player.maxSpeed;
-                        this.player.radius *= (1 - this.config.boostConsumption);
-                    }
-                    
-                    this.player.velocity.x = Math.cos(angle) * speed;
-                    this.player.velocity.y = Math.sin(angle) * speed;
-                } else if (!this.joystick.active) {
-                    // 无输入时减速停止
-                    this.player.velocity.x *= 0.9;
-                    this.player.velocity.y *= 0.9;
-                }
-                
-                // 手机端：摇杆控制加速处理
-                if (this.isMobile && this.joystick.active) {
-                    if ((this.keys[' '] || this.virtualButtons.boost) && this.player.radius > 15) {
-                        this.player.velocity.x *= 1.5;
-                        this.player.velocity.y *= 1.5;
-                        this.player.radius *= (1 - this.config.boostConsumption);
-                    }
-                }
-                
-                // 更新玩家位置并限制在画布内
-                this.player.x += this.player.velocity.x;
-                this.player.y += this.player.velocity.y;
-                
-                // 边界碰撞检测
+                // 边界碰撞检测（手机端反弹更弱，避免失控）
                 if (this.player.x - this.player.radius < 0) {
                     this.player.x = this.player.radius;
-                    this.player.velocity.x *= -0.5;
+                    this.player.velocity.x *= this.isMobile ? -0.3 : -0.5;
                 } else if (this.player.x + this.player.radius > this.canvas.width) {
                     this.player.x = this.canvas.width - this.player.radius;
-                    this.player.velocity.x *= -0.5;
+                    this.player.velocity.x *= this.isMobile ? -0.3 : -0.5;
                 }
                 
                 if (this.player.y - this.player.radius < 0) {
                     this.player.y = this.player.radius;
-                    this.player.velocity.y *= -0.5;
+                    this.player.velocity.y *= this.isMobile ? -0.3 : -0.5;
                 } else if (this.player.y + this.player.radius > this.canvas.height) {
                     this.player.y = this.canvas.height - this.player.radius;
-                    this.player.velocity.y *= -0.5;
+                    this.player.velocity.y *= this.isMobile ? -0.3 : -0.5;
                 }
+                
+                // 更新玩家位置
+                this.player.x += this.player.velocity.x;
+                this.player.y += this.player.velocity.y;
             }
             
-            // 处理敌人移动
+            // 处理敌人移动（手机端更温和）
             handleEnemyMovement() {
                 this.enemies.forEach(enemy => {
                     // 每30帧随机更换目标
                     if (Math.random() < 0.03) {
-                        const targetType = this.isMobile ? (Math.random() < 0.7 ? 'food' : 'player') : (Math.random() < 0.5 ? 'player' : 'food');
+                        // 手机端敌人更倾向追食物（80%概率），减少攻击性
+                        const targetType = this.isMobile ? (Math.random() < 0.8 ? 'food' : 'player') : (Math.random() < 0.5 ? 'player' : 'food');
                         
-                        if (targetType === 'player' && this.getDistance(enemy, this.player) < (this.isMobile ? 250 : 300)) {
+                        // 手机端敌人追击距离更短（200px），更难发现玩家
+                        if (targetType === 'player' && this.getDistance(enemy, this.player) < (this.isMobile ? 200 : 300)) {
                             enemy.target = this.player;
                         } else {
                             if (this.food.length > 0) {
@@ -714,7 +678,7 @@
                     if (enemy.target) {
                         const dx = enemy.target.x - enemy.x;
                         const dy = enemy.target.y - enemy.y;
-                        const distance = this.getDistance(enemy.target, enemy);
+                        const distance = Math.sqrt(dx * dx + dy * dy);
                         
                         if (distance > 10) {
                             const angle = Math.atan2(dy, dx);
@@ -761,7 +725,10 @@
                 // 玩家吃食物
                 for (let i = this.food.length - 1; i >= 0; i--) {
                     const food = this.food[i];
-                    const distance = this.getDistance(this.player, food);
+                    const distance = Math.sqrt(
+                        Math.pow(this.player.x - food.x, 2) + 
+                        Math.pow(this.player.y - food.y, 2)
+                    );
                     
                     if (distance < this.player.radius - food.radius) {
                         this.player.radius += food.radius * this.config.playerGrowthRate;
@@ -772,7 +739,10 @@
                         // 敌人吃食物
                         for (let j = this.enemies.length - 1; j >= 0; j--) {
                             const enemy = this.enemies[j];
-                            const enemyDistance = this.getDistance(enemy, food);
+                            const enemyDistance = Math.sqrt(
+                                Math.pow(enemy.x - food.x, 2) + 
+                                Math.pow(enemy.y - food.y, 2)
+                            );
                             
                             if (enemyDistance < enemy.radius - food.radius) {
                                 enemy.radius += food.radius * this.config.enemyGrowthRate;
@@ -787,7 +757,10 @@
                 // 玩家和敌人碰撞
                 for (let i = this.enemies.length - 1; i >= 0; i--) {
                     const enemy = this.enemies[i];
-                    const distance = this.getDistance(this.player, enemy);
+                    const distance = Math.sqrt(
+                        Math.pow(this.player.x - enemy.x, 2) + 
+                        Math.pow(this.player.y - enemy.y, 2)
+                    );
                     
                     // 玩家吃敌人
                     if (distance < this.player.radius - enemy.radius && this.player.radius > enemy.radius * 1.1) {
@@ -808,7 +781,10 @@
                     for (let j = i + 1; j < this.enemies.length; j++) {
                         const enemy1 = this.enemies[i];
                         const enemy2 = this.enemies[j];
-                        const distance = this.getDistance(enemy1, enemy2);
+                        const distance = Math.sqrt(
+                            Math.pow(enemy1.x - enemy2.x, 2) + 
+                            Math.pow(enemy1.y - enemy2.y, 2)
+                        );
                         
                         if (distance < enemy1.radius - enemy2.radius && enemy1.radius > enemy2.radius * 1.1) {
                             enemy1.radius += enemy2.radius * 0.2;
@@ -849,7 +825,7 @@
                 this.enemies.forEach(enemy => {
                     this.drawCircle(enemy.x, enemy.y, enemy.radius, enemy.color);
                     
-                    // 手机端绘制敌人轮廓
+                    // 手机端绘制敌人轮廓，更易识别
                     if (this.isMobile) {
                         this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
                         this.ctx.lineWidth = 1;
@@ -920,7 +896,7 @@
                 this.ctx.arc(x, y, radius, 0, Math.PI * 2);
                 this.ctx.fill();
                 
-                // 添加高光效果
+                // 添加高光效果，增强立体感
                 const gradient = this.ctx.createRadialGradient(
                     x - radius * 0.3, y - radius * 0.3, radius * 0.1,
                     x, y, radius
