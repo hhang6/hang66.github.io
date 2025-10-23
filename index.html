@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>球球大作战 - 手机端仅摇杆版</title>
+    <title>球球大作战 - 图片玩家球版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <script>
@@ -48,8 +48,10 @@
                 @apply control-btn w-12 h-12 md:w-14 md:h-14 bg-primary/30 border-primary/50;
             }
             .joystick-container {
-                @apply fixed bottom-6 left-6 w-32 h-32 md:hidden bg-white/10 backdrop-blur-sm rounded-full border border-white/20 
-                       flex items-center justify-center touch-manipulation z-20;
+          @apply md:hidden w-32 h-32 bg-white/10 backdrop-blur-sm rounded-full border border-white/20 
+              flex items-center justify-center touch-manipulation z-20;
+          position: absolute; /* 改为绝对定位，便于在触点处放置 */
+          display: none; /* 默认隐藏，触摸时显示 */
             }
             .joystick-knob {
                 @apply w-16 h-16 bg-primary/40 rounded-full touch-manipulation transition-transform duration-100;
@@ -92,7 +94,7 @@
                 </button>
             </div>
             
-            <!-- 功能按钮组（仅加速和重启，移除方向键） -->
+            <!-- 功能按钮组 -->
             <div class="absolute bottom-6 right-6 flex flex-col gap-4 z-20">
                 <button id="btnBoost" class="control-btn w-16 h-16 bg-danger/30 border-danger/40">
                     <i class="fa fa-bolt text-danger text-xl"></i>
@@ -158,7 +160,7 @@
                 </button>
             </div>
             
-            <!-- 移动设备虚拟摇杆（优化尺寸和样式，仅保留摇杆） -->
+            <!-- 移动设备虚拟摇杆 -->
             <div id="joystick" class="joystick-container">
                 <div id="joystickKnob" class="joystick-knob"></div>
             </div>
@@ -181,17 +183,38 @@
                 // 设备类型判断
                 this.isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
                 
+                // 加载玩家球图片（使用星球图片示例）
+                this.playerImage = new Image();
+                this.playerImage.src = 'https://picsum.photos/seed/playerball/200/200'; // 圆形星球图片
+                this.imageLoaded = false;
+                this.playerImage.onload = () => {
+                    this.imageLoaded = true;
+                };
+                
+                // 加载敌人图片组（用于替换其他玩家的圆形）
+                this.enemyImages = [];
+                this.enemyImagesLoaded = 0;
+                this.enemyImagesCount = 5; // 准备5种不同敌人外观
+                for (let i = 0; i < this.enemyImagesCount; i++) {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.src = `https://picsum.photos/seed/enemy${i}/200/200`;
+                    img.onload = () => {
+                        this.enemyImagesLoaded++;
+                    };
+                    this.enemyImages.push(img);
+                }
+                
                 // 设置画布尺寸
                 this.resizeCanvas();
                 window.addEventListener('resize', () => this.resizeCanvas());
                 
-                // 游戏元素 - 保持之前优化的手机端低速配置
+                // 游戏元素
                 this.player = {
                     x: this.canvas.width / 2,
                     y: this.canvas.height / 2,
                     radius: 10,
-                    color: '#EF4444',
-                    speed: this.isMobile ? 1.8 : 3, // 手机端低速
+                    speed: this.isMobile ? 1.8 : 3,
                     maxSpeed: this.isMobile ? 3.2 : 6,
                     velocity: { x: 0, y: 0 },
                     invincible: false,
@@ -202,20 +225,24 @@
                 // 游戏配置
                 this.config = {
                     foodCount: this.isMobile ? 100 : 150,
-                    enemyCount: this.isMobile ? 8 : 15, // 手机端敌人更少
+                    enemyCount: this.isMobile ? 8 : 15,
                     foodMinRadius: 2,
                     foodMaxRadius: 6,
                     enemyMinRadius: 8,
-                    enemyMaxRadius: 22, // 手机端敌人更小
+                    enemyMaxRadius: 22,
                     invincibilityTime: 200,
-                    boostConsumption: this.isMobile ? 0.015 : 0.02, // 手机端加速消耗更低
+                    boostConsumption: this.isMobile ? 0.015 : 0.02,
                     playerGrowthRate: 0.12,
                     enemyGrowthRate: this.isMobile ? 0.04 : 0.05
                 };
                 
                 // 游戏状态
-                this.gameState = 'menu'; // menu, playing, paused, over
+                this.gameState = 'menu';
                 this.gamePaused = false;
+                // 世界与相机（地图比单个画面更大）
+                this.worldWidth = this.canvas.width * 2;
+                this.worldHeight = this.canvas.height * 2;
+                this.camera = { x: 0, y: 0 };
                 this.food = [];
                 this.enemies = [];
                 this.keys = {};
@@ -226,23 +253,23 @@
                     startY: 0,
                     currentX: 0,
                     currentY: 0,
-                    maxOffset: 40 // 摇杆最大偏移距离，优化操控精度
+                    maxOffset: 40
                 };
                 
-                // 绑定DOM元素（移除方向键相关元素）
+                // 绑定DOM元素
                 this.bindDOMElements();
                 
                 // 初始化游戏
                 this.initGame();
                 
-                // 绑定事件监听（移除方向键事件）
+                // 绑定事件监听
                 this.bindEvents();
                 
                 // 游戏循环
                 this.gameLoop();
             }
             
-            // 绑定DOM元素（移除方向键按钮）
+            // 绑定DOM元素
             bindDOMElements() {
                 // 菜单和按钮元素
                 this.startMenu = document.getElementById('startMenu');
@@ -254,11 +281,11 @@
                 this.gameOverMenu = document.getElementById('gameOverMenu');
                 this.gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
                 
-                // 仅保留功能按钮（加速、重启）
+                // 功能按钮
                 this.btnBoost = document.getElementById('btnBoost');
                 this.btnRestart = document.getElementById('btnRestart');
                 
-                // 摇杆元素（重点保留）
+                // 摇杆元素
                 this.joystickElement = document.getElementById('joystick');
                 this.joystickKnob = document.getElementById('joystickKnob');
                 
@@ -276,10 +303,18 @@
                 this.canvas.width = container.clientWidth;
                 this.canvas.height = container.clientHeight;
                 
-                // 重新定位玩家
-                if (this.gameState === 'playing' || this.gameState === 'paused') {
-                    this.player.x = Math.min(Math.max(this.player.x, this.player.radius), this.canvas.width - this.player.radius);
-                    this.player.y = Math.min(Math.max(this.player.y, this.player.radius), this.canvas.height - this.player.radius);
+                // 世界大小按画布扩大（保持世界至少为画布两倍）
+                this.worldWidth = Math.max(this.worldWidth || 0, this.canvas.width * 2);
+                this.worldHeight = Math.max(this.worldHeight || 0, this.canvas.height * 2);
+
+                // 重新定位玩家到画布中心（初始或重置）
+                if (this.gameState === 'playing' || this.gameState === 'paused' || this.gameState === 'menu') {
+                    this.player.x = Math.min(Math.max(this.player.x, this.player.radius), this.worldWidth - this.player.radius);
+                    this.player.y = Math.min(Math.max(this.player.y, this.player.radius), this.worldHeight - this.player.radius);
+                    // 重置摄像机以玩家为中心
+                    this.camera.x = this.player.x - this.canvas.width / 2;
+                    this.camera.y = this.player.y - this.canvas.height / 2;
+                    this.clampCamera();
                 }
             }
             
@@ -290,7 +325,6 @@
                     x: this.canvas.width / 2,
                     y: this.canvas.height / 2,
                     radius: 10,
-                    color: '#EF4444',
                     speed: this.isMobile ? 1.8 : 3,
                     maxSpeed: this.isMobile ? 3.2 : 6,
                     velocity: { x: 0, y: 0 },
@@ -318,8 +352,8 @@
             // 生成食物
             spawnFood() {
                 const radius = this.config.foodMinRadius + Math.random() * (this.config.foodMaxRadius - this.config.foodMinRadius);
-                const x = radius + Math.random() * (this.canvas.width - 2 * radius);
-                const y = radius + Math.random() * (this.canvas.height - 2 * radius);
+                const x = radius + Math.random() * (this.worldWidth - 2 * radius);
+                const y = radius + Math.random() * (this.worldHeight - 2 * radius);
                 
                 // 随机颜色
                 const hue = Math.random() * 360;
@@ -335,26 +369,28 @@
                 
                 // 确保敌人不会出现在玩家附近
                 do {
-                    x = radius + Math.random() * (this.canvas.width - 2 * radius);
-                    y = radius + Math.random() * (this.canvas.height - 2 * radius);
+                    x = radius + Math.random() * (this.worldWidth - 2 * radius);
+                    y = radius + Math.random() * (this.worldHeight - 2 * radius);
                 } while (this.getDistance({x, y}, this.player) < this.player.radius + radius + 50);
                 
                 // 随机颜色
                 const hue = 120 + Math.random() * 60;
                 const color = this.isMobile ? `hsl(${hue}, 80%, 45%)` : `hsl(${hue}, 70%, 50%)`;
                 
-                // 手机端敌人速度更低
+                // 敌人速度
                 const enemySpeed = this.isMobile ? (0.6 + Math.random() * 0.9) : (1 + Math.random() * 1.5);
                 
                 this.enemies.push({
                     x, y, radius, color,
                     speed: enemySpeed,
                     velocity: { x: 0, y: 0 },
-                    target: null
+                    target: null,
+                    // 随机选择一个敌人图片索引
+                    imageIndex: Math.floor(Math.random() * this.enemyImagesCount)
                 });
             }
             
-            // 绑定事件监听（移除方向键事件，强化摇杆事件）
+            // 绑定事件监听
             bindEvents() {
                 // 移除旧事件监听
                 this.startBtn.removeEventListener('click', this.startGame.bind(this));
@@ -387,7 +423,6 @@
                 // 键盘控制（电脑端）
                 window.addEventListener('keydown', (e) => {
                     this.keys[e.key] = true;
-                    // P键暂停
                     if (e.key === 'p' || e.key === 'P') {
                         this.togglePause();
                     }
@@ -399,82 +434,91 @@
                 // 鼠标控制（电脑端）
                 this.canvas.addEventListener('mousemove', (e) => {
                     const rect = this.canvas.getBoundingClientRect();
-                    this.mouse.x = e.clientX - rect.left;
-                    this.mouse.y = e.clientY - rect.top;
+                    // 记录屏幕坐标
+                    const sx = e.clientX - rect.left;
+                    const sy = e.clientY - rect.top;
+                    // 转换为世界坐标
+                    this.mouse.x = sx + this.camera.x;
+                    this.mouse.y = sy + this.camera.y;
                 });
                 this.canvas.addEventListener('mousedown', () => this.mouse.down = true);
                 this.canvas.addEventListener('mouseup', () => this.mouse.down = false);
                 
-                // 强化手机端摇杆事件（核心控制）
+                // 手机端摇杆事件
                 if (this.isMobile) {
                     this.bindJoystickEvents();
                 }
             }
             
-            // 绑定摇杆事件（优化操控体验）
+            // 绑定摇杆事件
             bindJoystickEvents() {
-                // 摇杆触摸开始
+                // 触摸开始：把摇杆容器移动到触点处并显示
                 this.joystickElement.addEventListener('touchstart', (e) => {
                     e.preventDefault();
-                    const touch = e.touches[0];
-                    const rect = this.joystickElement.getBoundingClientRect();
-                    // 记录摇杆中心点作为起始位置
-                    this.joystick.startX = rect.left + rect.width / 2;
-                    this.joystick.startY = rect.top + rect.height / 2;
+                    const touch = e.changedTouches[0];
+                    this.joystick.identifier = touch.identifier;
+
+                    // 在触点处放置摇杆容器
+                    const size = this.joystickElement.getBoundingClientRect();
+                    const left = touch.clientX - size.width / 2;
+                    const top = touch.clientY - size.height / 2;
+                    this.joystickElement.style.left = `${left}px`;
+                    this.joystickElement.style.top = `${top}px`;
+                    this.joystickElement.style.display = 'flex';
+
+                    // 中心点
+                    this.joystick.startX = touch.clientX;
+                    this.joystick.startY = touch.clientY;
                     this.joystick.currentX = touch.clientX;
                     this.joystick.currentY = touch.clientY;
                     this.joystick.active = true;
                 }, { passive: false });
-                
-                // 摇杆触摸移动（优化精度）
+
                 this.joystickElement.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     if (!this.joystick.active) return;
-                    
-                    const touch = e.touches[0];
+                    // 找到对应触点
+                    let touch = null;
+                    for (let i = 0; i < e.touches.length; i++) {
+                        if (e.touches[i].identifier === this.joystick.identifier) { touch = e.touches[i]; break; }
+                    }
+                    if (!touch) return;
+
                     this.joystick.currentX = touch.clientX;
                     this.joystick.currentY = touch.clientY;
-                    
-                    // 计算偏移量和角度
+
                     const dx = this.joystick.currentX - this.joystick.startX;
                     const dy = this.joystick.currentY - this.joystick.startY;
-                    const distance = Math.min(
-                        Math.sqrt(dx * dx + dy * dy),
-                        this.joystick.maxOffset
-                    );
-                    
-                    // 计算移动角度
+                    const distance = Math.min(Math.sqrt(dx * dx + dy * dy), this.joystick.maxOffset);
+
                     const angle = Math.atan2(dy, dx);
-                    
-                    // 移动摇杆旋钮（视觉反馈）
                     this.joystickKnob.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
-                    
-                    // 计算速度比例（让操控更线性）
+
                     const speedRatio = (distance / this.joystick.maxOffset) * 0.95;
-                    // 设置玩家速度（保持低速特性）
                     this.player.velocity.x = Math.cos(angle) * this.player.speed * speedRatio;
                     this.player.velocity.y = Math.sin(angle) * this.player.speed * speedRatio;
                 }, { passive: false });
-                
-                // 摇杆触摸结束（复位）
-                this.joystickElement.addEventListener('touchend', (e) => {
+
+                // 触摸结束或取消：隐藏摇杆并重置速度
+                const endHandler = (e) => {
                     e.preventDefault();
+                    // 如果是对应触点结束
+                    let ended = false;
+                    for (let i = 0; i < e.changedTouches.length; i++) {
+                        if (e.changedTouches[i].identifier === this.joystick.identifier) { ended = true; break; }
+                    }
+                    if (!ended) return;
+
                     this.joystick.active = false;
-                    // 旋钮复位
-                    this.joystickKnob.style.transform = 'translate(0, 0)';
-                    // 速度清零
-                    this.player.velocity.x = 0;
-                    this.player.velocity.y = 0;
-                }, { passive: false });
-                
-                // 防止触摸离开区域后仍有速度
-                this.joystickElement.addEventListener('touchcancel', (e) => {
-                    e.preventDefault();
-                    this.joystick.active = false;
+                    this.joystick.identifier = null;
+                    this.joystickElement.style.display = 'none';
                     this.joystickKnob.style.transform = 'translate(0, 0)';
                     this.player.velocity.x = 0;
                     this.player.velocity.y = 0;
-                }, { passive: false });
+                };
+
+                this.joystickElement.addEventListener('touchend', endHandler, { passive: false });
+                this.joystickElement.addEventListener('touchcancel', endHandler, { passive: false });
             }
             
             // 加速按钮事件处理
@@ -493,10 +537,10 @@
                 this.gameState = 'playing';
                 this.gamePaused = false;
                 this.startMenu.classList.add('hidden');
-                
-                // 手机端确保摇杆可见（默认已显示）
+                // 手机端：摇杆不在开始时固定显示，改为触点处动态显示
                 if (this.isMobile) {
-                    this.joystickElement.style.display = 'flex';
+                    this.joystickElement.style.display = 'none';
+                    this.joystickKnob.style.transform = 'translate(0, 0)';
                 }
             }
             
@@ -549,7 +593,7 @@
                 this.pauseBtn.innerHTML = '<i class="fa fa-pause text-primary text-xl"></i>';
                 
                 if (this.isMobile) {
-                    this.joystickElement.style.display = 'flex';
+                    this.joystickElement.style.display = 'none';
                     this.joystickKnob.style.transform = 'translate(0, 0)';
                 }
             }
@@ -566,7 +610,7 @@
                     }
                 }
                 
-                // 玩家移动控制（手机端仅摇杆，电脑端键盘/鼠标）
+                // 玩家移动控制
                 this.handlePlayerMovement();
                 
                 // 敌人AI移动
@@ -579,13 +623,12 @@
                 this.updateUI();
             }
             
-            // 处理玩家移动（区分设备）
+            // 处理玩家移动
             handlePlayerMovement() {
-                // 手机端：仅摇杆控制（已在事件中处理速度）
+                // 手机端：摇杆控制
                 if (this.isMobile) {
-                    // 加速处理（摇杆控制+加速按钮）
+                    // 加速处理
                     if (this.keys[' '] && this.player.radius > 15) {
-                        // 手机端加速倍率较低，保持操控性
                         this.player.velocity.x *= 1.3;
                         this.player.velocity.y *= 1.3;
                         this.player.radius *= (1 - this.config.boostConsumption);
@@ -602,7 +645,7 @@
                     if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) moveX = -1;
                     if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) moveX = 1;
                     
-                    // 鼠标控制（优先级更高）
+                    // 鼠标控制
                     if (this.mouse.down) {
                         const dx = this.mouse.x - this.player.x;
                         const dy = this.mouse.y - this.player.y;
@@ -634,37 +677,46 @@
                     }
                 }
                 
-                // 边界碰撞检测（手机端反弹更弱，避免失控）
+                // 世界边界检测（玩家不能超出世界）
                 if (this.player.x - this.player.radius < 0) {
                     this.player.x = this.player.radius;
                     this.player.velocity.x *= this.isMobile ? -0.3 : -0.5;
-                } else if (this.player.x + this.player.radius > this.canvas.width) {
-                    this.player.x = this.canvas.width - this.player.radius;
+                } else if (this.player.x + this.player.radius > this.worldWidth) {
+                    this.player.x = this.worldWidth - this.player.radius;
                     this.player.velocity.x *= this.isMobile ? -0.3 : -0.5;
                 }
-                
+
                 if (this.player.y - this.player.radius < 0) {
                     this.player.y = this.player.radius;
                     this.player.velocity.y *= this.isMobile ? -0.3 : -0.5;
-                } else if (this.player.y + this.player.radius > this.canvas.height) {
-                    this.player.y = this.canvas.height - this.player.radius;
+                } else if (this.player.y + this.player.radius > this.worldHeight) {
+                    this.player.y = this.worldHeight - this.player.radius;
                     this.player.velocity.y *= this.isMobile ? -0.3 : -0.5;
                 }
                 
                 // 更新玩家位置
                 this.player.x += this.player.velocity.x;
                 this.player.y += this.player.velocity.y;
+
+                // 更新摄像机，使玩家保持在视口中心（平滑可选，这里即时居中）
+                this.camera.x = this.player.x - this.canvas.width / 2;
+                this.camera.y = this.player.y - this.canvas.height / 2;
+                this.clampCamera();
+            }
+
+            // 限制摄像机到世界范围，避免看到空白边缘
+            clampCamera() {
+                this.camera.x = Math.max(0, Math.min(this.camera.x, this.worldWidth - this.canvas.width));
+                this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight - this.canvas.height));
             }
             
-            // 处理敌人移动（手机端更温和）
+            // 处理敌人移动
             handleEnemyMovement() {
                 this.enemies.forEach(enemy => {
                     // 每30帧随机更换目标
                     if (Math.random() < 0.03) {
-                        // 手机端敌人更倾向追食物（80%概率），减少攻击性
                         const targetType = this.isMobile ? (Math.random() < 0.8 ? 'food' : 'player') : (Math.random() < 0.5 ? 'player' : 'food');
                         
-                        // 手机端敌人追击距离更短（200px），更难发现玩家
                         if (targetType === 'player' && this.getDistance(enemy, this.player) < (this.isMobile ? 200 : 300)) {
                             enemy.target = this.player;
                         } else {
@@ -812,91 +864,108 @@
             draw() {
                 // 清空画布
                 this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-                
-                // 绘制背景网格
+
+                // 将绘制坐标系移动到摄像机位置（世界坐标 -> 视口坐标）
+                this.ctx.save();
+                this.ctx.translate(-this.camera.x, -this.camera.y);
+
+                // 绘制背景网格（基于世界坐标）
                 this.drawBackground();
-                
+
                 // 绘制食物
                 this.food.forEach(food => {
                     this.drawCircle(food.x, food.y, food.radius, food.color);
                 });
-                
-                // 绘制敌人
+
+                // 绘制敌人（使用图片或回退为圆形）
                 this.enemies.forEach(enemy => {
-                    this.drawCircle(enemy.x, enemy.y, enemy.radius, enemy.color);
-                    
-                    // 手机端绘制敌人轮廓，更易识别
-                    if (this.isMobile) {
-                        this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
-                        this.ctx.lineWidth = 1;
-                        this.ctx.beginPath();
-                        this.ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
-                        this.ctx.stroke();
-                    }
-                    
-                    // 绘制大小数值
-                    this.ctx.fillStyle = 'white';
-                    this.ctx.font = this.isMobile ? '12px Arial' : '10px Arial';
-                    this.ctx.textAlign = 'center';
-                    this.ctx.textBaseline = 'middle';
-                    this.ctx.fillText(Math.round(enemy.radius), enemy.x, enemy.y);
+                    this.drawEnemy(enemy);
                 });
-                
-                // 绘制玩家
-                if (this.player.invincible) {
-                    // 无敌状态闪烁效果
-                    if (Math.floor(Date.now() / 100) % 2 === 0) {
-                        this.drawCircle(this.player.x, this.player.y, this.player.radius, this.player.color);
-                    }
-                    // 无敌外圈
-                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
-                    this.ctx.lineWidth = this.isMobile ? 2 : 1.5;
-                    this.ctx.beginPath();
-                    this.ctx.arc(this.player.x, this.player.y, this.player.radius + 5, 0, Math.PI * 2);
-                    this.ctx.stroke();
-                } else {
-                    this.drawCircle(this.player.x, this.player.y, this.player.radius, this.player.color);
-                }
-                
-                // 绘制玩家大小
+
+                // 绘制玩家（使用图片替换纯色）
+                this.drawPlayerWithImage();
+
+                // 绘制玩家大小（在世界坐标系中）
                 this.ctx.fillStyle = 'white';
                 this.ctx.font = this.isMobile ? '14px Arial' : '12px Arial';
                 this.ctx.textAlign = 'center';
                 this.ctx.textBaseline = 'middle';
                 this.ctx.fillText(Math.round(this.player.radius), this.player.x, this.player.y);
+
+                this.ctx.restore();
+            }
+            
+            // 用图片绘制玩家球（核心修改）
+            drawPlayerWithImage() {
+                if (!this.imageLoaded) {
+                    // 图片加载完成前，用默认颜色绘制
+                    this.ctx.fillStyle = '#EF4444';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.player.x, this.player.y, this.player.radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                    return;
+                }
+
+                // 无敌状态处理（闪烁）
+                if (this.player.invincible && Math.floor(Date.now() / 100) % 2 !== 0) {
+                    return;
+                }
+
+                // 使用圆形裁剪绘制玩家图片，确保严格与球大小贴合
+                const drawn = this.drawImageCircle(this.playerImage, this.player.x, this.player.y, this.player.radius);
+                if (!drawn) {
+                    // 回退为颜色圆形
+                    this.ctx.fillStyle = '#EF4444';
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.player.x, this.player.y, this.player.radius, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+
+                // 无敌状态外圈
+                if (this.player.invincible) {
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+                    this.ctx.lineWidth = this.isMobile ? 2 : 1.5;
+                    this.ctx.beginPath();
+                    this.ctx.arc(this.player.x, this.player.y, this.player.radius + 5, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
             }
             
             // 绘制背景网格
             drawBackground() {
                 const gridSize = this.isMobile ? 30 : 40;
-                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.06)';
                 this.ctx.lineWidth = 1;
-                
-                // 绘制水平线
-                for (let y = 0; y < this.canvas.height; y += gridSize) {
+
+                // 只绘制摄像机可见区域的网格线以提升性能
+                const startX = Math.floor(this.camera.x / gridSize) * gridSize;
+                const endX = Math.ceil((this.camera.x + this.canvas.width) / gridSize) * gridSize;
+                const startY = Math.floor(this.camera.y / gridSize) * gridSize;
+                const endY = Math.ceil((this.camera.y + this.canvas.height) / gridSize) * gridSize;
+
+                for (let x = startX; x <= endX; x += gridSize) {
                     this.ctx.beginPath();
-                    this.ctx.moveTo(0, y);
-                    this.ctx.lineTo(this.canvas.width, y);
+                    this.ctx.moveTo(x, startY);
+                    this.ctx.lineTo(x, endY);
                     this.ctx.stroke();
                 }
-                
-                // 绘制垂直线
-                for (let x = 0; x < this.canvas.width; x += gridSize) {
+
+                for (let y = startY; y <= endY; y += gridSize) {
                     this.ctx.beginPath();
-                    this.ctx.moveTo(x, 0);
-                    this.ctx.lineTo(x, this.canvas.height);
+                    this.ctx.moveTo(startX, y);
+                    this.ctx.lineTo(endX, y);
                     this.ctx.stroke();
                 }
             }
             
-            // 绘制圆形
+            // 绘制圆形（食物和敌人）
             drawCircle(x, y, radius, color) {
                 this.ctx.fillStyle = color;
                 this.ctx.beginPath();
                 this.ctx.arc(x, y, radius, 0, Math.PI * 2);
                 this.ctx.fill();
                 
-                // 添加高光效果，增强立体感
+                // 添加高光效果
                 const gradient = this.ctx.createRadialGradient(
                     x - radius * 0.3, y - radius * 0.3, radius * 0.1,
                     x, y, radius
@@ -908,6 +977,64 @@
                 this.ctx.beginPath();
                 this.ctx.arc(x, y, radius, 0, Math.PI * 2);
                 this.ctx.fill();
+            }
+            
+            // 绘制敌人（使用图片或回退为圆形）
+            drawEnemy(enemy) {
+                const img = this.enemyImages[enemy.imageIndex];
+
+                // 使用圆形裁剪绘制图片（如果已加载），否则回退为圆形
+                const drawn = this.drawImageCircle(img, enemy.x, enemy.y, enemy.radius);
+                if (!drawn) {
+                    this.drawCircle(enemy.x, enemy.y, enemy.radius, enemy.color);
+                }
+
+                // 手机端绘制敌人轮廓
+                if (this.isMobile) {
+                    this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    this.ctx.lineWidth = 1;
+                    this.ctx.beginPath();
+                    this.ctx.arc(enemy.x, enemy.y, enemy.radius, 0, Math.PI * 2);
+                    this.ctx.stroke();
+                }
+
+                // 绘制大小数值
+                this.ctx.fillStyle = 'white';
+                this.ctx.font = this.isMobile ? '12px Arial' : '10px Arial';
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                this.ctx.fillText(Math.round(enemy.radius), enemy.x, enemy.y);
+            }
+
+            // 将图片中心裁剪为正方形并以圆形掩膜绘制到指定位置，返回是否绘制成功
+            drawImageCircle(img, x, y, radius) {
+                if (!img || !img.complete || !img.naturalWidth) return false;
+
+                const diameter = radius * 2;
+                const iw = img.naturalWidth;
+                const ih = img.naturalHeight;
+                const side = Math.min(iw, ih);
+                const sx = Math.floor((iw - side) / 2);
+                const sy = Math.floor((ih - side) / 2);
+
+                this.ctx.save();
+                // 创建圆形裁剪区域
+                this.ctx.beginPath();
+                this.ctx.arc(x, y, radius, 0, Math.PI * 2);
+                this.ctx.closePath();
+                this.ctx.clip();
+
+                // 将图片的中心正方形裁剪后绘制到目标圆形区域
+                try {
+                    this.ctx.drawImage(img, sx, sy, side, side, x - radius, y - radius, diameter, diameter);
+                } catch (e) {
+                    // drawImage 可能抛错（跨域或资源问题），回退并恢复上下文
+                    this.ctx.restore();
+                    return false;
+                }
+
+                this.ctx.restore();
+                return true;
             }
             
             // 计算两点之间的距离
