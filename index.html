@@ -227,9 +227,6 @@
                     score: 0
                 };
                 
-                // 新增分球计数，用于控制第一次分球行为
-                this.splitCount = 0;
-                
                 // 游戏配置 - 新增分球速度配置
                 this.config = {
                     foodCount: this.isMobile ? 100 : 150,
@@ -242,8 +239,8 @@
                     boostConsumption: this.isMobile ? 0.015 : 0.02,
                     playerGrowthRate: 0.12,
                     enemyGrowthRate: this.isMobile ? 0.04 : 0.05,
-                    splitSpeed: 4.5, // 分球速度
-                    splitSpeedVariation: 0.8 // 分球速度变化范围
+                    splitSpeed: 4.5, // 降低分球速度，使分球更缓和（原值8）
+                    splitSpeedVariation: 0.8 // 分球速度变化范围，增加自然感
                 };
                 
                 // 游戏状态
@@ -346,9 +343,6 @@
                     invincibilityTimer: 0,
                     score: 0
                 };
-                
-                // 重置分球计数
-                this.splitCount = 0;
                 
                 // 清空分裂球
                 this.splitBalls = [];
@@ -453,7 +447,7 @@
                         this.togglePause();
                     }
                     if (e.key === 'q' || e.key === 'Q') {
-                        this.splitAllBalls();
+                        this.splitAllBalls(); // 修改为分所有球
                     }
                 });
                 window.addEventListener('keyup', (e) => {
@@ -484,7 +478,7 @@
                 this.mouse.y = e.clientY - rect.top + this.camera.y;
             }
             
-            // 分球主函数
+            // 分球主函数 - 改为分所有球
             splitAllBalls() {
                 // 先保存当前分裂球，避免在循环中修改数组
                 const currentBalls = [...this.splitBalls];
@@ -492,15 +486,10 @@
                 // 玩家主球分球
                 this.splitSingleBall(this.player);
                 
-                // 后续分球时，所有分裂球也分球
-                if (this.splitCount > 0) {
-                    currentBalls.forEach(ball => {
-                        this.splitSingleBall(ball);
-                    });
-                }
-                
-                // 增加分球计数
-                this.splitCount++;
+                // 所有分裂球分球
+                currentBalls.forEach(ball => {
+                    this.splitSingleBall(ball);
+                });
             }
             
             // 单个球分球功能
@@ -514,78 +503,56 @@
                 // 确定分球方向
                 let angle = this.determineSplitAngle(ball);
                 
-                // 计算分球速度
+                // 为两个分裂球计算略微不同的角度，使它们分开
+                const angle1 = angle - 0.1; // 角度偏移，使分球更自然
+                const angle2 = angle + 0.1;
+                
+                // 计算分球速度，增加一点随机性使分球更缓和自然
                 const baseSpeed = this.config.splitSpeed;
                 const speedVariation = this.config.splitSpeedVariation;
-                const speed = baseSpeed + (Math.random() * speedVariation * 2 - speedVariation);
+                const speed1 = baseSpeed + (Math.random() * speedVariation * 2 - speedVariation);
+                const speed2 = baseSpeed + (Math.random() * speedVariation * 2 - speedVariation);
                 
-                // 第一次分球特殊处理：只分一个球，母球位置保留
-                if (this.splitCount === 0 && ball === this.player) {
-                    // 弹出的球
-                    const dist = ball.radius + splitR + 1;
-                    const nx = ball.x + Math.cos(angle) * dist;
-                    const ny = ball.y + Math.sin(angle) * dist;
-                    const nvx = Math.cos(angle) * speed;
-                    const nvy = Math.sin(angle) * speed;
-                    
-                    // 添加新的分裂球
-                    this.splitBalls.push({
-                        x: nx,
-                        y: ny,
-                        radius: splitR,
-                        velocity: { x: nvx, y: nvy },
-                        timer: 30
-                    });
-                    
-                    // 母球变为分裂后的大小（与弹出的球相同）
-                    ball.radius = splitR;
-                } 
-                // 普通分球：分裂为两个
-                else {
-                    // 为两个分裂球计算略微不同的角度
-                    const angle1 = angle - 0.1;
-                    const angle2 = angle + 0.1;
-                    
-                    // 第一个分球（保持在原位置附近）
-                    const dist1 = 5; // 很小的距离，几乎在原位置
-                    const nx1 = ball.x + Math.cos(angle1) * dist1;
-                    const ny1 = ball.y + Math.sin(angle1) * dist1;
-                    const nvx1 = Math.cos(angle1) * speed * 0.3; // 慢速
-                    
-                    // 第二个分球（向控制方向弹出）
-                    const dist2 = ball.radius + splitR + 1;
-                    const nx2 = ball.x + Math.cos(angle2) * dist2;
-                    const ny2 = ball.y + Math.sin(angle2) * dist2;
-                    const nvx2 = Math.cos(angle2) * speed;
-                    const nvy2 = Math.sin(angle2) * speed;
-                    
-                    // 添加新的分裂球
-                    this.splitBalls.push({
-                        x: nx1,
-                        y: ny1,
-                        radius: splitR,
-                        velocity: { x: nvx1, y: 0 }, // 几乎不动
-                        timer: 30
-                    });
-                    
-                    this.splitBalls.push({
-                        x: nx2,
-                        y: ny2,
-                        radius: splitR,
-                        velocity: { x: nvx2, y: nvy2 },
-                        timer: 30
-                    });
-                    
-                    // 从原球移除质量
-                    if (ball === this.player) {
-                        // 主球分球后消失，由分裂球代替
-                        ball.radius = 0;
-                    } else {
-                        // 分裂球分球 - 从数组中移除原分裂球
-                        const index = this.splitBalls.indexOf(ball);
-                        if (index !== -1) {
-                            this.splitBalls.splice(index, 1);
-                        }
+                // 第一个分球
+                const dist1 = ball.radius + splitR + 1;
+                const nx1 = ball.x + Math.cos(angle1) * dist1;
+                const ny1 = ball.y + Math.sin(angle1) * dist1;
+                const nvx1 = Math.cos(angle1) * speed1;
+                const nvy1 = Math.sin(angle1) * speed1;
+                
+                // 第二个分球
+                const dist2 = ball.radius + splitR + 1;
+                const nx2 = ball.x + Math.cos(angle2) * dist2;
+                const ny2 = ball.y + Math.sin(angle2) * dist2;
+                const nvx2 = Math.cos(angle2) * speed2;
+                const nvy2 = Math.sin(angle2) * speed2;
+                
+                // 添加新的分裂球
+                this.splitBalls.push({
+                    x: nx1,
+                    y: ny1,
+                    radius: splitR,
+                    velocity: { x: nvx1, y: nvy1 },
+                    timer: 30
+                });
+                
+                this.splitBalls.push({
+                    x: nx2,
+                    y: ny2,
+                    radius: splitR,
+                    velocity: { x: nvx2, y: nvy2 },
+                    timer: 30
+                });
+                
+                // 从原球移除质量
+                if (ball === this.player) {
+                    // 主球分球
+                    this.player.radius -= splitR * 2;
+                } else {
+                    // 分裂球分球 - 从数组中移除原分裂球
+                    const index = this.splitBalls.indexOf(ball);
+                    if (index !== -1) {
+                        this.splitBalls.splice(index, 1);
                     }
                 }
             }
@@ -602,7 +569,6 @@
                         if (dx !== 0 || dy !== 0) {
                             angle = Math.atan2(dy, dx);
                         } else {
-                            // 如果没有移动输入，随机方向
                             angle = Math.random() * Math.PI * 2;
                         }
                     } else if (!this.isMobile) {
@@ -1039,6 +1005,7 @@
                 const dist = enemy.radius + splitR + 2;
                 const nx = enemy.x + Math.cos(angle) * dist;
                 const ny = enemy.y + Math.sin(angle) * dist;
+                // 敌人分球速度也相应降低
                 const speed = this.config.splitSpeed * 0.8;
                 const nvx = Math.cos(angle) * speed;
                 const nvy = Math.sin(angle) * speed;
