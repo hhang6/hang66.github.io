@@ -52,11 +52,9 @@
                     flex items-center justify-center touch-manipulation z-20;
                 position: absolute;
                 display: none;
-                touch-action: none; /* 禁用浏览器默认触摸行为 */
             }
             .joystick-knob {
                 @apply w-16 h-16 bg-primary/40 rounded-full touch-manipulation transition-transform duration-100;
-                touch-action: none;
             }
         }
     </style>
@@ -104,8 +102,12 @@
                 <button id="btnRestart" class="control-btn w-16 h-16 bg-secondary/30 border-secondary/40">
                     <i class="fa fa-refresh text-secondary text-xl"></i>
                 </button>
+                <!-- 分球按钮（移动端右下角固定） -->
+                <button id="btnSplit" class="md:hidden control-btn w-16 h-16 bg-primary/30 border-primary/60 text-white text-2xl shadow-lg active:scale-95 transition-transform mt-2" style="touch-action:manipulation;">
+                    <i class="fa fa-share-alt"></i>
+                </button>
             </div>
-            
+
             <!-- 开始菜单 -->
             <div id="startMenu" class="absolute inset-0 bg-dark/80 backdrop-blur-md flex flex-col items-center justify-center gap-6 z-10 fade-in p-4">
                 <h2 class="text-[clamp(1rem,3vw,1.8rem)] font-bold text-center text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
@@ -119,8 +121,9 @@
                         <h3 class="font-bold text-primary mb-1.5">控制方式</h3>
                         <ul class="text-slate-300 space-y-1">
                             <li><i class="fa fa-arrows mr-2 text-secondary"></i>电脑：方向键/WASD/鼠标</li>
-                            <li><i class="fa fa-mobile mr-2 text-secondary"></i>手机：触摸屏幕任意位置，拖动摇杆控制方向</li>
+                            <li><i class="fa fa-mobile mr-2 text-secondary"></i>手机：左下角摇杆控制方向</li>
                             <li><i class="fa fa-bolt mr-2 text-secondary"></i>右下角按钮：消耗大小加速</li>
+                            <li><i class="fa fa-share-alt mr-2 text-secondary"></i>电脑按Q键/手机按分球按钮分球</li>
                             <li><i class="fa fa-pause mr-2 text-secondary"></i><strong>暂停键：</strong>右上角按钮或P键</li>
                         </ul>
                     </div>
@@ -170,7 +173,7 @@
         
         <!-- 游戏控制说明 -->
         <div class="w-full mt-3 text-center text-xs md:text-sm text-slate-400">
-            <p>电脑控制：<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">W</kbd><kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">A</kbd><kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">S</kbd><kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">D</kbd> 或方向键移动，<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">空格</kbd> 加速，<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">P</kbd> 暂停</p>
+            <p>电脑控制：<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">W</kbd><kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">A</kbd><kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">S</kbd><kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">D</kbd> 或方向键移动，<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">空格</kbd> 加速，<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">Q</kbd> 分球，<kbd class="px-1.5 py-0.5 bg-dark rounded border border-slate-700">P</kbd> 暂停</p>
         </div>
     </div>
 
@@ -224,7 +227,10 @@
                     score: 0
                 };
                 
-                // 游戏配置
+                // 新增分球计数，用于控制第一次分球行为
+                this.splitCount = 0;
+                
+                // 游戏配置 - 新增分球速度配置
                 this.config = {
                     foodCount: this.isMobile ? 100 : 150,
                     enemyCount: this.isMobile ? 8 : 15,
@@ -235,7 +241,9 @@
                     invincibilityTime: 200,
                     boostConsumption: this.isMobile ? 0.015 : 0.02,
                     playerGrowthRate: 0.12,
-                    enemyGrowthRate: this.isMobile ? 0.04 : 0.05
+                    enemyGrowthRate: this.isMobile ? 0.04 : 0.05,
+                    splitSpeed: 4.5, // 分球速度
+                    splitSpeedVariation: 0.8 // 分球速度变化范围
                 };
                 
                 // 游戏状态
@@ -255,9 +263,9 @@
                     startY: 0,
                     currentX: 0,
                     currentY: 0,
-                    maxOffset: 40,
-                    identifier: null // 记录触摸点ID
+                    maxOffset: 40
                 };
+                this.splitBalls = []; // 存储玩家分裂球
                 
                 // 绑定DOM元素
                 this.bindDOMElements();
@@ -283,15 +291,18 @@
                 this.pauseRestartBtn = document.getElementById('pauseRestartBtn');
                 this.gameOverMenu = document.getElementById('gameOverMenu');
                 this.gameOverRestartBtn = document.getElementById('gameOverRestartBtn');
-                
+
                 // 功能按钮
                 this.btnBoost = document.getElementById('btnBoost');
                 this.btnRestart = document.getElementById('btnRestart');
-                
+
+                // 分球按钮（移动端固定右下角）
+                this.btnSplit = document.getElementById('btnSplit');
+
                 // 摇杆元素
                 this.joystickElement = document.getElementById('joystick');
                 this.joystickKnob = document.getElementById('joystickKnob');
-                
+
                 // 分数显示元素
                 this.scoreDisplay = document.getElementById('score');
                 this.sizeDisplay = document.getElementById('size');
@@ -335,6 +346,12 @@
                     invincibilityTimer: 0,
                     score: 0
                 };
+                
+                // 重置分球计数
+                this.splitCount = 0;
+                
+                // 清空分裂球
+                this.splitBalls = [];
                 
                 // 生成食物
                 this.food = [];
@@ -388,8 +405,8 @@
                     speed: enemySpeed,
                     velocity: { x: 0, y: 0 },
                     target: null,
-                    // 随机选择一个敌人图片索引
-                    imageIndex: Math.floor(Math.random() * this.enemyImagesCount)
+                    imageIndex: Math.floor(Math.random() * this.enemyImagesCount),
+                    splitBalls: [] // 敌人分裂球
                 });
             }
             
@@ -422,6 +439,12 @@
                 this.btnBoost.addEventListener('touchend', this.handleBoostEnd.bind(this), { passive: false });
                 this.btnBoost.addEventListener('mouseup', this.handleBoostEnd.bind(this));
                 this.btnBoost.addEventListener('mouseleave', this.handleBoostEnd.bind(this));
+
+                // 分球按钮事件（移动端）
+                if (this.btnSplit) {
+                    this.btnSplit.addEventListener('touchstart', (e) => { e.preventDefault(); this.splitAllBalls(); }, { passive: false });
+                    this.btnSplit.addEventListener('mousedown', (e) => { e.preventDefault(); this.splitAllBalls(); });
+                }
                 
                 // 键盘控制（电脑端）
                 window.addEventListener('keydown', (e) => {
@@ -429,153 +452,293 @@
                     if (e.key === 'p' || e.key === 'P') {
                         this.togglePause();
                     }
+                    if (e.key === 'q' || e.key === 'Q') {
+                        this.splitAllBalls();
+                    }
                 });
                 window.addEventListener('keyup', (e) => {
                     this.keys[e.key] = false;
                 });
-                
+
                 // 鼠标控制（电脑端）
-                this.canvas.addEventListener('mousemove', (e) => {
-                    const rect = this.canvas.getBoundingClientRect();
-                    // 记录屏幕坐标
-                    const sx = e.clientX - rect.left;
-                    const sy = e.clientY - rect.top;
-                    // 转换为世界坐标
-                    this.mouse.x = sx + this.camera.x;
-                    this.mouse.y = sy + this.camera.y;
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.mouse.down = true;
+                    this.updateMousePosition(e);
                 });
-                this.canvas.addEventListener('mousedown', () => this.mouse.down = true);
-                this.canvas.addEventListener('mouseup', () => this.mouse.down = false);
+                this.canvas.addEventListener('mousemove', (e) => {
+                    this.updateMousePosition(e);
+                });
+                this.canvas.addEventListener('mouseup', () => {
+                    this.mouse.down = false;
+                });
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.mouse.down = false;
+                });
+            }
+
+            // 更新鼠标位置（电脑端控制）
+            updateMousePosition(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                // 将鼠标位置转换为游戏世界坐标
+                this.mouse.x = e.clientX - rect.left + this.camera.x;
+                this.mouse.y = e.clientY - rect.top + this.camera.y;
+            }
+            
+            // 分球主函数
+            splitAllBalls() {
+                // 先保存当前分裂球，避免在循环中修改数组
+                const currentBalls = [...this.splitBalls];
                 
-                // 手机端摇杆事件
-                if (this.isMobile) {
-                    this.bindDynamicJoystickEvents();
+                // 玩家主球分球
+                this.splitSingleBall(this.player);
+                
+                // 后续分球时，所有分裂球也分球
+                if (this.splitCount > 0) {
+                    currentBalls.forEach(ball => {
+                        this.splitSingleBall(ball);
+                    });
+                }
+                
+                // 增加分球计数
+                this.splitCount++;
+            }
+            
+            // 单个球分球功能
+            splitSingleBall(ball) {
+                // 检查是否可以分球
+                if (!ball || ball.radius < 18) return;
+                const minR = 10;
+                const splitR = Math.max(ball.radius / 2, minR);
+                if (ball.radius < splitR + minR) return;
+                
+                // 确定分球方向
+                let angle = this.determineSplitAngle(ball);
+                
+                // 计算分球速度
+                const baseSpeed = this.config.splitSpeed;
+                const speedVariation = this.config.splitSpeedVariation;
+                const speed = baseSpeed + (Math.random() * speedVariation * 2 - speedVariation);
+                
+                // 第一次分球特殊处理：只分一个球，母球位置保留
+                if (this.splitCount === 0 && ball === this.player) {
+                    // 弹出的球
+                    const dist = ball.radius + splitR + 1;
+                    const nx = ball.x + Math.cos(angle) * dist;
+                    const ny = ball.y + Math.sin(angle) * dist;
+                    const nvx = Math.cos(angle) * speed;
+                    const nvy = Math.sin(angle) * speed;
+                    
+                    // 添加新的分裂球
+                    this.splitBalls.push({
+                        x: nx,
+                        y: ny,
+                        radius: splitR,
+                        velocity: { x: nvx, y: nvy },
+                        timer: 30
+                    });
+                    
+                    // 母球变为分裂后的大小（与弹出的球相同）
+                    ball.radius = splitR;
+                } 
+                // 普通分球：分裂为两个
+                else {
+                    // 为两个分裂球计算略微不同的角度
+                    const angle1 = angle - 0.1;
+                    const angle2 = angle + 0.1;
+                    
+                    // 第一个分球（保持在原位置附近）
+                    const dist1 = 5; // 很小的距离，几乎在原位置
+                    const nx1 = ball.x + Math.cos(angle1) * dist1;
+                    const ny1 = ball.y + Math.sin(angle1) * dist1;
+                    const nvx1 = Math.cos(angle1) * speed * 0.3; // 慢速
+                    
+                    // 第二个分球（向控制方向弹出）
+                    const dist2 = ball.radius + splitR + 1;
+                    const nx2 = ball.x + Math.cos(angle2) * dist2;
+                    const ny2 = ball.y + Math.sin(angle2) * dist2;
+                    const nvx2 = Math.cos(angle2) * speed;
+                    const nvy2 = Math.sin(angle2) * speed;
+                    
+                    // 添加新的分裂球
+                    this.splitBalls.push({
+                        x: nx1,
+                        y: ny1,
+                        radius: splitR,
+                        velocity: { x: nvx1, y: 0 }, // 几乎不动
+                        timer: 30
+                    });
+                    
+                    this.splitBalls.push({
+                        x: nx2,
+                        y: ny2,
+                        radius: splitR,
+                        velocity: { x: nvx2, y: nvy2 },
+                        timer: 30
+                    });
+                    
+                    // 从原球移除质量
+                    if (ball === this.player) {
+                        // 主球分球后消失，由分裂球代替
+                        ball.radius = 0;
+                    } else {
+                        // 分裂球分球 - 从数组中移除原分裂球
+                        const index = this.splitBalls.indexOf(ball);
+                        if (index !== -1) {
+                            this.splitBalls.splice(index, 1);
+                        }
+                    }
                 }
             }
             
-            // 绑定动态摇杆事件（核心修改）
-            bindDynamicJoystickEvents() {
-                const canvasContainer = this.canvas.parentElement;
+            // 确定分球方向
+            determineSplitAngle(ball) {
+                let angle = 0;
                 
-                // 触摸开始：在触摸位置显示摇杆
-                canvasContainer.addEventListener('touchstart', (e) => {
-                    // 忽略功能按钮区域的触摸
-                    const touch = e.changedTouches[0];
-                    const boostBtn = this.btnBoost.getBoundingClientRect();
-                    const restartBtn = this.btnRestart.getBoundingClientRect();
-                    const pauseBtn = this.pauseBtn.getBoundingClientRect();
-                    
-                    // 判断触摸点是否在功能按钮内，若是则不触发摇杆
-                    const isOnButton = (rect, x, y) => {
-                        return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
-                    };
-                    
-                    if (isOnButton(boostBtn, touch.clientX, touch.clientY) || 
-                        isOnButton(restartBtn, touch.clientX, touch.clientY) ||
-                        isOnButton(pauseBtn, touch.clientX, touch.clientY)) {
-                        return;
+                // 如果是主球，根据当前移动方向确定分球方向
+                if (ball === this.player) {
+                    if (this.isMobile && this.joystick.active) {
+                        const dx = this.joystick.currentX - this.joystick.startX;
+                        const dy = this.joystick.currentY - this.joystick.startY;
+                        if (dx !== 0 || dy !== 0) {
+                            angle = Math.atan2(dy, dx);
+                        } else {
+                            // 如果没有移动输入，随机方向
+                            angle = Math.random() * Math.PI * 2;
+                        }
+                    } else if (!this.isMobile) {
+                        // 电脑端控制
+                        let moveX = 0, moveY = 0;
+                        if (this.keys['ArrowUp'] || this.keys['w'] || this.keys['W']) moveY = -1;
+                        if (this.keys['ArrowDown'] || this.keys['s'] || this.keys['S']) moveY = 1;
+                        if (this.keys['ArrowLeft'] || this.keys['a'] || this.keys['A']) moveX = -1;
+                        if (this.keys['ArrowRight'] || this.keys['d'] || this.keys['D']) moveX = 1;
+                        
+                        if (moveX !== 0 || moveY !== 0) {
+                            angle = Math.atan2(moveY, moveX);
+                        } else if (this.mouse.down) {
+                            const dx = this.mouse.x - this.player.x;
+                            const dy = this.mouse.y - this.player.y;
+                            if (dx !== 0 || dy !== 0) {
+                                angle = Math.atan2(dy, dx);
+                            } else {
+                                angle = Math.random() * Math.PI * 2;
+                            }
+                        } else {
+                            angle = Math.random() * Math.PI * 2;
+                        }
                     }
-                    
+                } else {
+                    // 分裂球分球方向：沿当前移动方向
+                    if (ball.velocity.x !== 0 || ball.velocity.y !== 0) {
+                        angle = Math.atan2(ball.velocity.y, ball.velocity.x);
+                    } else {
+                        angle = Math.random() * Math.PI * 2;
+                    }
+                }
+                
+                return angle;
+            }
+            
+            // 更新分裂球运动
+            updateSplitBalls() {
+                if (!this.splitBalls) return;
+                for (let i = this.splitBalls.length - 1; i >= 0; i--) {
+                    const ball = this.splitBalls[i];
+                    if (ball.timer > 0) {
+                        ball.x += ball.velocity.x;
+                        ball.y += ball.velocity.y;
+                        // 分裂球逐渐减速
+                        ball.velocity.x *= 0.98;
+                        ball.velocity.y *= 0.98;
+                        ball.timer--;
+                    } else {
+                        // 分裂球向主球移动
+                        const dx = ball.x - this.player.x;
+                        const dy = ball.y - this.player.y;
+                        const dist = Math.sqrt(dx * dx + dy * dy);
+                        if (dist < this.player.radius + ball.radius + 2) {
+                            this.player.radius += ball.radius;
+                            this.splitBalls.splice(i, 1);
+                        } else {
+                            const angle = Math.atan2(this.player.y - ball.y, this.player.x - ball.x);
+                            // 移动速度随距离增加而增加
+                            const moveSpeed = Math.min(2, dist / 50);
+                            ball.x += Math.cos(angle) * moveSpeed;
+                            ball.y += Math.sin(angle) * moveSpeed;
+                        }
+                    }
+                }
+            }
+            
+            // 绑定摇杆事件
+            bindJoystickEvents() {
+                // 触摸开始：把摇杆容器移动到触点处并显示
+                this.joystickElement.addEventListener('touchstart', (e) => {
                     e.preventDefault();
+                    const touch = e.changedTouches[0];
                     this.joystick.identifier = touch.identifier;
 
-                    // 计算摇杆容器位置（居中于触摸点）
-                    const joystickRect = this.joystickElement.getBoundingClientRect();
-                    const left = touch.clientX - joystickRect.width / 2;
-                    const top = touch.clientY - joystickRect.height / 2;
-                    
-                    // 限制摇杆在画布容器内
-                    const containerRect = canvasContainer.getBoundingClientRect();
-                    const maxLeft = containerRect.right - joystickRect.width;
-                    const maxTop = containerRect.bottom - joystickRect.height;
-                    
-                    this.joystickElement.style.left = `${Math.max(containerRect.left, Math.min(left, maxLeft))}px`;
-                    this.joystickElement.style.top = `${Math.max(containerRect.top, Math.min(top, maxTop))}px`;
+                    // 在触点处放置摇杆容器
+                    const size = this.joystickElement.getBoundingClientRect();
+                    const left = touch.clientX - size.width / 2;
+                    const top = touch.clientY - size.height / 2;
+                    this.joystickElement.style.left = `${left}px`;
+                    this.joystickElement.style.top = `${top}px`;
                     this.joystickElement.style.display = 'flex';
 
-                    // 记录摇杆初始位置
+                    // 中心点
                     this.joystick.startX = touch.clientX;
                     this.joystick.startY = touch.clientY;
                     this.joystick.currentX = touch.clientX;
                     this.joystick.currentY = touch.clientY;
                     this.joystick.active = true;
-                    
-                    // 重置摇杆按钮位置
-                    this.joystickKnob.style.transform = 'translate(0, 0)';
-                    this.player.velocity.x = 0;
-                    this.player.velocity.y = 0;
                 }, { passive: false });
 
-                // 触摸移动：更新摇杆位置和玩家速度
-                canvasContainer.addEventListener('touchmove', (e) => {
+                this.joystickElement.addEventListener('touchmove', (e) => {
                     e.preventDefault();
                     if (!this.joystick.active) return;
-                    
-                    // 找到对应的触摸点
+                    // 找到对应触点
                     let touch = null;
                     for (let i = 0; i < e.touches.length; i++) {
-                        if (e.touches[i].identifier === this.joystick.identifier) {
-                            touch = e.touches[i];
-                            break;
-                        }
+                        if (e.touches[i].identifier === this.joystick.identifier) { touch = e.touches[i]; break; }
                     }
-                    
                     if (!touch) return;
 
-                    // 更新触摸位置
                     this.joystick.currentX = touch.clientX;
                     this.joystick.currentY = touch.clientY;
 
-                    // 计算偏移量和角度
                     const dx = this.joystick.currentX - this.joystick.startX;
                     const dy = this.joystick.currentY - this.joystick.startY;
                     const distance = Math.min(Math.sqrt(dx * dx + dy * dy), this.joystick.maxOffset);
+
                     const angle = Math.atan2(dy, dx);
-                    
-                    // 更新摇杆按钮位置
                     this.joystickKnob.style.transform = `translate(${Math.cos(angle) * distance}px, ${Math.sin(angle) * distance}px)`;
 
-                    // 计算移动速度
-                    const speedRatio = distance / this.joystick.maxOffset;
+                    const speedRatio = (distance / this.joystick.maxOffset) * 0.95;
                     this.player.velocity.x = Math.cos(angle) * this.player.speed * speedRatio;
                     this.player.velocity.y = Math.sin(angle) * this.player.speed * speedRatio;
                 }, { passive: false });
 
-                // 触摸结束：隐藏摇杆并重置速度
-                const endTouchHandler = (e) => {
-                    // 找到结束的触摸点
-                    let touchEnded = false;
+                // 触摸结束或取消：隐藏摇杆并重置速度
+                const endHandler = (e) => {
+                    e.preventDefault();
+                    // 如果是对应触点结束
+                    let ended = false;
                     for (let i = 0; i < e.changedTouches.length; i++) {
-                        if (e.changedTouches[i].identifier === this.joystick.identifier) {
-                            touchEnded = true;
-                            break;
-                        }
+                        if (e.changedTouches[i].identifier === this.joystick.identifier) { ended = true; break; }
                     }
-                    
-                    if (!touchEnded) return;
+                    if (!ended) return;
 
-                    // 重置摇杆状态
                     this.joystick.active = false;
                     this.joystick.identifier = null;
                     this.joystickElement.style.display = 'none';
                     this.joystickKnob.style.transform = 'translate(0, 0)';
-                    
-                    // 平滑减速
-                    const slowDown = () => {
-                        if (Math.abs(this.player.velocity.x) < 0.1 && Math.abs(this.player.velocity.y) < 0.1) {
-                            this.player.velocity.x = 0;
-                            this.player.velocity.y = 0;
-                            return;
-                        }
-                        this.player.velocity.x *= 0.8;
-                        this.player.velocity.y *= 0.8;
-                        requestAnimationFrame(slowDown);
-                    };
-                    slowDown();
+                    this.player.velocity.x = 0;
+                    this.player.velocity.y = 0;
                 };
 
-                canvasContainer.addEventListener('touchend', endTouchHandler, { passive: false });
-                canvasContainer.addEventListener('touchcancel', endTouchHandler, { passive: false });
+                this.joystickElement.addEventListener('touchend', endHandler, { passive: false });
+                this.joystickElement.addEventListener('touchcancel', endHandler, { passive: false });
             }
             
             // 加速按钮事件处理
@@ -594,9 +757,12 @@
                 this.gameState = 'playing';
                 this.gamePaused = false;
                 this.startMenu.classList.add('hidden');
-                // 隐藏摇杆初始状态
-                this.joystickElement.style.display = 'none';
-                this.joystickKnob.style.transform = 'translate(0, 0)';
+                // 手机端：摇杆不在开始时固定显示，改为触点处动态显示
+                if (this.isMobile) {
+                    this.joystickElement.style.display = 'none';
+                    this.joystickKnob.style.transform = 'translate(0, 0)';
+                    this.bindJoystickEvents(); // 确保摇杆事件正确绑定
+                }
             }
             
             // 切换暂停状态
@@ -647,15 +813,16 @@
                 this.gameOverMenu.classList.add('hidden');
                 this.pauseBtn.innerHTML = '<i class="fa fa-pause text-primary text-xl"></i>';
                 
-                // 重置摇杆
-                this.joystickElement.style.display = 'none';
-                this.joystickKnob.style.transform = 'translate(0, 0)';
+                if (this.isMobile) {
+                    this.joystickElement.style.display = 'none';
+                    this.joystickKnob.style.transform = 'translate(0, 0)';
+                }
             }
             
             // 更新游戏状态
             update() {
                 if (this.gameState !== 'playing' || this.gamePaused) return;
-                
+
                 // 更新无敌状态
                 if (this.player.invincible) {
                     this.player.invincibilityTimer--;
@@ -663,16 +830,19 @@
                         this.player.invincible = false;
                     }
                 }
-                
+
                 // 玩家移动控制
                 this.handlePlayerMovement();
-                
+
+                // 分裂球运动
+                this.updateSplitBalls();
+
                 // 敌人AI移动
                 this.handleEnemyMovement();
-                
+
                 // 碰撞检测
                 this.checkCollisions();
-                
+
                 // 更新UI
                 this.updateUI();
             }
@@ -752,7 +922,7 @@
                 this.player.x += this.player.velocity.x;
                 this.player.y += this.player.velocity.y;
 
-                // 更新摄像机，使玩家保持在视口中心（平滑可选，这里即时居中）
+                // 更新摄像机，使玩家保持在视口中心
                 this.camera.x = this.player.x - this.canvas.width / 2;
                 this.camera.y = this.player.y - this.canvas.height / 2;
                 this.clampCamera();
@@ -764,13 +934,46 @@
                 this.camera.y = Math.max(0, Math.min(this.camera.y, this.worldHeight - this.canvas.height));
             }
             
-            // 处理敌人移动
+            // 处理敌人移动和分球
             handleEnemyMovement() {
                 this.enemies.forEach(enemy => {
+                    // 敌人分球冷却
+                    if (!enemy.splitCooldown) enemy.splitCooldown = Math.floor(100 + Math.random() * 200);
+                    enemy.splitCooldown--;
+                    // 敌人分球条件：半径足够大且冷却到0
+                    if (enemy.radius > 16 && enemy.splitCooldown <= 0) {
+                        this.splitEnemy(enemy);
+                        enemy.splitCooldown = Math.floor(120 + Math.random() * 200);
+                    }
+
+                    // 敌人分裂球运动
+                    if (enemy.splitBalls) {
+                        for (let i = enemy.splitBalls.length - 1; i >= 0; i--) {
+                            const ball = enemy.splitBalls[i];
+                            if (ball.timer > 0) {
+                                ball.x += ball.velocity.x;
+                                ball.y += ball.velocity.y;
+                                ball.timer--;
+                            } else {
+                                // 合并回母体
+                                const dx = ball.x - enemy.x;
+                                const dy = ball.y - enemy.y;
+                                const dist = Math.sqrt(dx * dx + dy * dy);
+                                if (dist < enemy.radius + ball.radius + 2) {
+                                    enemy.radius += ball.radius;
+                                    enemy.splitBalls.splice(i, 1);
+                                } else {
+                                    const angle = Math.atan2(enemy.y - ball.y, enemy.x - ball.x);
+                                    ball.x += Math.cos(angle) * 1.1;
+                                    ball.y += Math.sin(angle) * 1.1;
+                                }
+                            }
+                        }
+                    }
+
                     // 每30帧随机更换目标
                     if (Math.random() < 0.03) {
                         const targetType = this.isMobile ? (Math.random() < 0.8 ? 'food' : 'player') : (Math.random() < 0.5 ? 'player' : 'food');
-                        
                         if (targetType === 'player' && this.getDistance(enemy, this.player) < (this.isMobile ? 200 : 300)) {
                             enemy.target = this.player;
                         } else {
@@ -779,13 +982,12 @@
                             }
                         }
                     }
-                    
+
                     // 向目标移动
                     if (enemy.target) {
                         const dx = enemy.target.x - enemy.x;
                         const dy = enemy.target.y - enemy.y;
                         const distance = Math.sqrt(dx * dx + dy * dy);
-                        
                         if (distance > 10) {
                             const angle = Math.atan2(dy, dx);
                             enemy.velocity.x = Math.cos(angle) * enemy.speed;
@@ -802,12 +1004,10 @@
                         enemy.velocity.x = Math.cos(angle) * enemy.speed * 0.5;
                         enemy.velocity.y = Math.sin(angle) * enemy.speed * 0.5;
                     }
-                    
-                    // 更新敌人位置并限制在世界内（修正原代码的边界错误）
+
+                    // 更新敌人位置并限制在世界内
                     enemy.x += enemy.velocity.x;
                     enemy.y += enemy.velocity.y;
-                    
-                    // 边界反弹（使用世界坐标而非画布坐标）
                     if (enemy.x - enemy.radius < 0) {
                         enemy.x = enemy.radius;
                         enemy.velocity.x *= -1;
@@ -815,7 +1015,6 @@
                         enemy.x = this.worldWidth - enemy.radius;
                         enemy.velocity.x *= -1;
                     }
-                    
                     if (enemy.y - enemy.radius < 0) {
                         enemy.y = enemy.radius;
                         enemy.velocity.y *= -1;
@@ -824,6 +1023,34 @@
                         enemy.velocity.y *= -1;
                     }
                 });
+            }
+
+            // 敌人分球
+            splitEnemy(enemy) {
+                const minR = 8;
+                const splitR = Math.max(enemy.radius / 2, minR);
+                if (enemy.radius < splitR + minR) return;
+                let angle = 0;
+                if (Math.random() < 0.7 && this.player) {
+                    angle = Math.atan2(this.player.y - enemy.y, this.player.x - enemy.x);
+                } else {
+                    angle = Math.random() * Math.PI * 2;
+                }
+                const dist = enemy.radius + splitR + 2;
+                const nx = enemy.x + Math.cos(angle) * dist;
+                const ny = enemy.y + Math.sin(angle) * dist;
+                const speed = this.config.splitSpeed * 0.8;
+                const nvx = Math.cos(angle) * speed;
+                const nvy = Math.sin(angle) * speed;
+                if (!enemy.splitBalls) enemy.splitBalls = [];
+                enemy.splitBalls.push({
+                    x: nx,
+                    y: ny,
+                    radius: splitR,
+                    velocity: { x: nvx, y: nvy },
+                    timer: 28
+                });
+                enemy.radius -= splitR;
             }
             
             // 检查碰撞
@@ -860,6 +1087,28 @@
                     }
                 }
                 
+                // 玩家分裂球吃食物
+                if (this.splitBalls) {
+                    for (let i = this.splitBalls.length - 1; i >= 0; i--) {
+                        const ball = this.splitBalls[i];
+                        for (let j = this.food.length - 1; j >= 0; j--) {
+                            const food = this.food[j];
+                            const distance = Math.sqrt(
+                                Math.pow(ball.x - food.x, 2) + 
+                                Math.pow(ball.y - food.y, 2)
+                            );
+                            
+                            if (distance < ball.radius - food.radius) {
+                                ball.radius += food.radius * this.config.playerGrowthRate * 0.8;
+                                this.player.score += Math.round(food.radius * 0.5);
+                                this.food.splice(j, 1);
+                                this.spawnFood();
+                                break;
+                            }
+                        }
+                    }
+                }
+                
                 // 玩家和敌人碰撞
                 for (let i = this.enemies.length - 1; i >= 0; i--) {
                     const enemy = this.enemies[i];
@@ -879,6 +1128,35 @@
                     else if (distance < enemy.radius - this.player.radius && enemy.radius > this.player.radius * 1.1 && !this.player.invincible) {
                         this.gameOver();
                         return;
+                    }
+                }
+                
+                // 分裂球和敌人碰撞
+                if (this.splitBalls) {
+                    for (let i = this.splitBalls.length - 1; i >= 0; i--) {
+                        const ball = this.splitBalls[i];
+                        for (let j = this.enemies.length - 1; j >= 0; j--) {
+                            const enemy = this.enemies[j];
+                            const distance = Math.sqrt(
+                                Math.pow(ball.x - enemy.x, 2) + 
+                                Math.pow(ball.y - enemy.y, 2)
+                            );
+                            
+                            // 分裂球吃敌人
+                            if (distance < ball.radius - enemy.radius && ball.radius > enemy.radius * 1.1) {
+                                ball.radius += enemy.radius * 0.2;
+                                this.player.score += Math.round(enemy.radius * 3);
+                                this.enemies.splice(j, 1);
+                                this.spawnEnemy();
+                                break;
+                            } 
+                            // 敌人吃分裂球
+                            else if (distance < enemy.radius - ball.radius && enemy.radius > ball.radius * 1.1) {
+                                enemy.radius += ball.radius * 0.2;
+                                this.splitBalls.splice(i, 1);
+                                break;
+                            }
+                        }
                     }
                 }
                 
@@ -934,7 +1212,33 @@
                 // 绘制敌人（使用图片或回退为圆形）
                 this.enemies.forEach(enemy => {
                     this.drawEnemy(enemy);
+                    // 绘制敌人分裂球
+                    if (enemy.splitBalls) {
+                        enemy.splitBalls.forEach(ball => {
+                            const img = this.enemyImages[enemy.imageIndex];
+                            this.drawImageCircle(img, ball.x, ball.y, ball.radius) || this.drawCircle(ball.x, ball.y, ball.radius, enemy.color);
+                            // 绘制半径数值
+                            this.ctx.fillStyle = 'white';
+                            this.ctx.font = this.isMobile ? '12px Arial' : '10px Arial';
+                            this.ctx.textAlign = 'center';
+                            this.ctx.textBaseline = 'middle';
+                            this.ctx.fillText(Math.round(ball.radius), ball.x, ball.y);
+                        });
+                    }
                 });
+
+                // 绘制分裂球
+                if (this.splitBalls) {
+                    this.splitBalls.forEach(ball => {
+                        this.drawImageCircle(this.playerImage, ball.x, ball.y, ball.radius) || this.drawCircle(ball.x, ball.y, ball.radius, '#EF4444');
+                        // 绘制半径数值
+                        this.ctx.fillStyle = 'white';
+                        this.ctx.font = this.isMobile ? '14px Arial' : '12px Arial';
+                        this.ctx.textAlign = 'center';
+                        this.ctx.textBaseline = 'middle';
+                        this.ctx.fillText(Math.round(ball.radius), ball.x, ball.y);
+                    });
+                }
 
                 // 绘制玩家（使用图片替换纯色）
                 this.drawPlayerWithImage();
@@ -949,7 +1253,7 @@
                 this.ctx.restore();
             }
             
-            // 用图片绘制玩家球（核心修改）
+            // 用图片绘制玩家球
             drawPlayerWithImage() {
                 if (!this.imageLoaded) {
                     // 图片加载完成前，用默认颜色绘制
